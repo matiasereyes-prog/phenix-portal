@@ -1745,6 +1745,20 @@ async function handleMagicLink() {
     if (error || !session) return;
 
     const email = session.user.email;
+
+    // Verificar rol del usuario
+    const { data: usuario } = await sbClient
+      .from('usuarios')
+      .select('rol')
+      .eq('email', email)
+      .maybeSingle();
+
+    // Si es admin o ejecutivo, redirigir al backend
+    if (usuario && ['admin', 'ejecutivo'].includes(usuario.rol)) {
+      window.location.href = 'https://app.phenixleasing.com';
+      return;
+    }
+
     userEmail = email;
 
     // Limpiar el hash de la URL
