@@ -6,6 +6,8 @@
 <title>AutoLease · Mi Contrato</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
@@ -934,12 +936,71 @@ body {
       <!-- Tab: Condiciones -->
       <div class="tab-panel" id="tab-condiciones">
         <div style="padding:20px 24px">
+
+          <!-- Estado on-chain -->
+          <div id="escrow-onchain-section" style="display:none">
+            <div style="background:var(--black);border-radius:16px;padding:20px;margin-bottom:16px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+                <div style="font-size:13px;font-weight:700;color:white;display:flex;align-items:center;gap:8px">
+                  ⛓ Estado on-chain · Base Network
+                  <div class="badge badge-blue">En tiempo real</div>
+                </div>
+                <button onclick="refreshEscrowOnchain()" style="background:rgba(255,255,255,0.1);border:none;color:white;border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer">↻ Actualizar</button>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
+                <div>
+                  <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">Total depositado</div>
+                  <div style="font-size:20px;font-weight:800;color:white;font-family:monospace" id="oc-total">—</div>
+                </div>
+                <div>
+                  <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">Liberado</div>
+                  <div style="font-size:20px;font-weight:800;color:#4ade80;font-family:monospace" id="oc-liberado">—</div>
+                </div>
+                <div>
+                  <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">Bloqueado</div>
+                  <div style="font-size:20px;font-weight:800;color:#fbbf24;font-family:monospace" id="oc-bloqueado">—</div>
+                </div>
+              </div>
+              <div style="margin-bottom:16px">
+                <div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:5px">
+                  <span>PROGRESO</span><span id="oc-pct">0%</span>
+                </div>
+                <div style="width:100%;height:8px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden">
+                  <div id="oc-progress" style="height:100%;background:linear-gradient(90deg,#3366ff,#4ade80);border-radius:4px;width:0%;transition:width 0.8s"></div>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button onclick="openDepositModal()" style="background:var(--accent);color:white;border:none;border-radius:8px;padding:9px 18px;font-family:var(--sans);font-size:13px;font-weight:700;cursor:pointer">+ Depositar fondos</button>
+                <a id="oc-basescan-link" href="#" target="_blank" style="background:rgba(255,255,255,0.1);color:white;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center">Ver en Basescan ↗</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sin escrow -->
+          <div id="escrow-no-onchain" style="display:none">
+            <div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:12px;padding:24px;text-align:center;margin-bottom:16px">
+              <div style="font-size:32px;margin-bottom:10px">📄</div>
+              <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px">Leasing tradicional</div>
+              <div style="font-size:13px;color:var(--text2)">Tu contrato no tiene escrow blockchain.</div>
+            </div>
+          </div>
+
+          <!-- Condiciones -->
+          <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">Condiciones de liberación</div>
           <div id="condiciones-list">
             <div class="empty-state"><div class="empty-state-icon">🔒</div><div class="empty-state-text">Sin condiciones registradas.</div></div>
           </div>
+
+          <!-- Historial on-chain -->
+          <div style="margin-top:20px">
+            <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">Historial de transacciones</div>
+            <div id="escrow-historial">
+              <div style="font-size:13px;color:var(--text3);text-align:center;padding:16px">Conectá tu wallet para ver el historial on-chain.</div>
+            </div>
+          </div>
+
         </div>
       </div>
-
       <!-- Tab: Info del contrato -->
       <div class="tab-panel" id="tab-info">
         <div style="padding:20px 24px">
@@ -1476,6 +1537,7 @@ function renderInfo(contrato) {
 function switchTab(tab) {
   if (tab === 'liquidacion') loadLiquidacionPortal();
   if (tab === 'documentos') loadDocumentosPortal();
+  if (tab === 'condiciones') loadEscrowOnchain();
   document.querySelectorAll('.tab').forEach((t, i) => {
     t.classList.toggle('active', ['cuotas','condiciones','info'][i] === tab);
   });
@@ -1773,7 +1835,9 @@ async function handleMagicLink() {
 
     // Cargar datos del contrato
     const appData = await fetchContratoData(email);
-    loadApp(appData || { contrato: null, cuotas: [], condiciones: [] });
+    const appDataFinal = appData || { contrato: null, cuotas: [], condiciones: [] };
+    window._contratoData = appDataFinal;
+    loadApp(appDataFinal);
   } catch(e) {
     console.error('Error al procesar magic link:', e);
   }
@@ -1921,6 +1985,331 @@ async function subirDocumento(input) {
     loadDocumentosPortal();
   } catch(e) {
     msgEl.innerHTML = '<div style="background:var(--red-bg);border:1px solid #fecaca;border-radius:8px;padding:10px 14px;color:var(--red);font-size:13px">Error: ' + (e.message || 'No se pudo subir el archivo.') + '</div>';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// GENERAR PDF DEL CONTRATO
+// ══════════════════════════════════════════════════════════════════
+async function descargarContratoPDF() {
+  const d = window._contratoData;
+  if (!d || !d.contrato) { showToastPortal('No hay datos del contrato'); return; }
+  const c = d.contrato;
+  const cuotas = d.cuotas || [];
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const W = 210; const M = 18;
+  let y = 20;
+
+  // ── HEADER ──
+  doc.setFillColor(10, 10, 10);
+  doc.rect(0, 0, W, 38, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  doc.text('PHENIX LEASING', M, 16);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(180, 180, 180);
+  doc.text('Leasing automotor con garantía blockchain · phenixleasing.com', M, 24);
+  doc.setTextColor(240, 90, 40);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('CONTRATO DE LEASING N° ' + (c.id || '').slice(0,8).toUpperCase(), M, 33);
+
+  y = 48;
+
+  // ── DATOS DE LAS PARTES ──
+  doc.setTextColor(10, 10, 10);
+  doc.setFillColor(245, 245, 243);
+  doc.rect(M, y, W - M*2, 7, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(100, 100, 100);
+  doc.text('DATOS DE LAS PARTES', M + 3, y + 5);
+  y += 10;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(10, 10, 10);
+  doc.text('DADOR (LESSOR)', M, y);
+  doc.text('TOMADOR (LESSEE)', W/2, y);
+  y += 5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(60, 60, 60);
+  doc.text(c.lessor_nombre || 'Phenix Leasing S.A.', M, y);
+  doc.text(c.cliente_nombre || '—', W/2, y);
+  y += 5;
+  doc.text('CUIT: ' + (c.lessor_cuit || '—'), M, y);
+  doc.text('Email: ' + (c.cliente_email || '—'), W/2, y);
+  y += 5;
+  doc.text('Ejecutivo: ' + (c.ejecutivo || '—'), M, y);
+  doc.text('Tel: ' + (c.ejecutivo_telefono || '—'), W/2, y);
+  y += 12;
+
+  // ── VEHÍCULO ──
+  doc.setFillColor(245, 245, 243);
+  doc.rect(M, y, W - M*2, 7, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(100, 100, 100);
+  doc.text('VEHÍCULO OBJETO DEL LEASING', M + 3, y + 5);
+  y += 10;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(10, 10, 10);
+  const vehiculoData = [
+    ['Descripción', c.auto_descripcion || '—', 'VIN', c.auto_vin || '—'],
+    ['Patente', c.auto_patente || '—', 'Estado', 'Nuevo 0km'],
+  ];
+  vehiculoData.forEach(row => {
+    doc.setFont('helvetica', 'bold'); doc.text(row[0] + ':', M, y);
+    doc.setFont('helvetica', 'normal'); doc.text(row[1], M + 28, y);
+    doc.setFont('helvetica', 'bold'); doc.text(row[2] + ':', W/2, y);
+    doc.setFont('helvetica', 'normal'); doc.text(row[3], W/2 + 20, y);
+    y += 6;
+  });
+  y += 6;
+
+  // ── CONDICIONES FINANCIERAS ──
+  doc.setFillColor(245, 245, 243);
+  doc.rect(M, y, W - M*2, 7, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(100, 100, 100);
+  doc.text('CONDICIONES FINANCIERAS', M + 3, y + 5);
+  y += 10;
+
+  const finData = [
+    ['Moneda', c.canon_moneda || 'USD', 'Plazo', (c.plazo_meses || '—') + ' meses'],
+    ['Canon mensual', (c.canon_moneda || 'USD') + ' ' + Number(c.canon_mensual || 0).toLocaleString('es-AR'), 'Opción de compra', (c.canon_moneda || 'USD') + ' ' + Number(c.opcion_compra || 0).toLocaleString('es-AR')],
+    ['Fecha inicio', c.fecha_inicio || '—', 'Fecha fin', c.fecha_fin || '—'],
+    ['Tipo', c.tipo === 'escrow_blockchain' ? 'Escrow Blockchain' : 'Tradicional', 'Estado', c.estado || '—'],
+  ];
+  finData.forEach(row => {
+    doc.setFont('helvetica', 'bold'); doc.setTextColor(100,100,100); doc.text(row[0] + ':', M, y);
+    doc.setFont('helvetica', 'bold'); doc.setTextColor(10,10,10); doc.text(row[1], M + 35, y);
+    doc.setFont('helvetica', 'bold'); doc.setTextColor(100,100,100); doc.text(row[2] + ':', W/2, y);
+    doc.setFont('helvetica', 'bold'); doc.setTextColor(10,10,10); doc.text(row[3], W/2 + 32, y);
+    y += 6;
+  });
+  y += 8;
+
+  // ── CUADRO DE LIQUIDACIÓN ──
+  if (cuotas.length > 0) {
+    doc.setFillColor(245, 245, 243);
+    doc.rect(M, y, W - M*2, 7, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text('CUADRO DE LIQUIDACIÓN', M + 3, y + 5);
+    y += 8;
+
+    const tableData = cuotas.map(q => [
+      String(q.numero).padStart(2,'0'),
+      q.fecha_vencimiento || '—',
+      (c.canon_moneda||'USD') + ' ' + Number(q.monto||0).toLocaleString('es-AR'),
+      q.capital ? Number(q.capital).toLocaleString('es-AR') : '—',
+      q.interes ? Number(q.interes).toLocaleString('es-AR') : '—',
+      q.saldo_restante ? Number(q.saldo_restante).toLocaleString('es-AR') : '—',
+      q.estado.toUpperCase(),
+    ]);
+
+    doc.autoTable({
+      startY: y,
+      head: [['#', 'Vencimiento', 'Cuota', 'Capital', 'Interés', 'Saldo', 'Estado']],
+      body: tableData,
+      margin: { left: M, right: M },
+      styles: { fontSize: 7.5, cellPadding: 2.5, font: 'helvetica' },
+      headStyles: { fillColor: [10, 10, 10], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+      alternateRowStyles: { fillColor: [248, 248, 246] },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 10 },
+        6: { halign: 'center' },
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body') {
+          const estado = data.row.raw[6];
+          if (estado === 'PAGA') data.cell.styles.textColor = [0, 166, 81];
+          if (estado === 'VENCIDA') data.cell.styles.textColor = [229, 62, 62];
+        }
+      }
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  }
+
+  // ── BLOCKCHAIN ──
+  if (c.tipo === 'escrow_blockchain' && c.escrow?.contrato_address) {
+    if (y > 240) { doc.addPage(); y = 20; }
+    doc.setFillColor(10, 10, 10);
+    doc.rect(M, y, W - M*2, 7, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(255, 255, 255);
+    doc.text('ESCROW BLOCKCHAIN · BASE NETWORK', M + 3, y + 5);
+    y += 10;
+    doc.setTextColor(60, 60, 60);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text('Contrato inteligente: ' + (c.escrow.contrato_address || '—'), M, y); y += 5;
+    doc.text('Lease ID on-chain: ' + (c.escrow.lease_id || '—'), M, y); y += 5;
+    doc.text('Token: ' + (c.escrow.token || '—') + '   Monto: ' + (c.escrow.total || 0) + ' ' + (c.escrow.token || ''), M, y); y += 10;
+  }
+
+  // ── CONDICIONES GENERALES ──
+  if (y > 230) { doc.addPage(); y = 20; }
+  doc.setFillColor(245, 245, 243);
+  doc.rect(M, y, W - M*2, 7, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(100, 100, 100);
+  doc.text('CONDICIONES GENERALES', M + 3, y + 5);
+  y += 10;
+
+  const condiciones = [
+    '1. El presente contrato se rige por la Ley 25.248 de Leasing y el Código Civil y Comercial de la Nación Argentina.',
+    '2. El tomador recibe el bien en uso y goce, comprometiéndose a abonar los cánones en las fechas pactadas.',
+    '3. Al finalizar el contrato, el tomador podrá ejercer la opción de compra por el valor residual indicado.',
+    '4. El incumplimiento de dos cuotas consecutivas habilita al dador a resolver el contrato e iniciar acciones legales.',
+    '5. La inscripción del leasing en el Registro Nacional de la Propiedad Automotor es obligatoria y a cargo del tomador.',
+    '6. El bien debe mantenerse asegurado durante toda la vigencia del contrato con cobertura contra todo riesgo.',
+  ];
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(80, 80, 80);
+  condiciones.forEach(cond => {
+    const lines = doc.splitTextToSize(cond, W - M*2);
+    doc.text(lines, M, y);
+    y += lines.length * 4.5 + 1;
+  });
+  y += 10;
+
+  // ── FIRMAS ──
+  if (y > 240) { doc.addPage(); y = 20; }
+  doc.setDrawColor(180, 180, 180);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(100, 100, 100);
+
+  const firmaY = Math.max(y + 20, 255);
+  doc.line(M, firmaY, M + 70, firmaY);
+  doc.line(W - M - 70, firmaY, W - M, firmaY);
+  doc.text('Firma Dador (Lessor)', M + 10, firmaY + 5);
+  doc.text('Firma Tomador (Lessee)', W - M - 60, firmaY + 5);
+  doc.text(c.lessor_nombre || 'Phenix Leasing S.A.', M + 5, firmaY + 10);
+  doc.text(c.cliente_nombre || '—', W - M - 55, firmaY + 10);
+
+  // ── FOOTER ──
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFillColor(10, 10, 10);
+    doc.rect(0, 287, W, 10, 'F');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(150, 150, 150);
+    doc.text('Phenix Leasing · phenixleasing.com · Generado el ' + new Date().toLocaleDateString('es-AR'), M, 293);
+    doc.text('Página ' + i + ' de ' + pageCount, W - M - 20, 293);
+  }
+
+  doc.save('contrato_leasing_' + (c.auto_descripcion||'').replace(/\s+/g,'_') + '_' + new Date().toISOString().split('T')[0] + '.pdf');
+  showToastPortal('✓ Contrato descargado');
+}
+
+function showToastPortal(msg) {
+  const t = document.getElementById('toast');
+  if (t) { t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ESCROW ON-CHAIN
+// ══════════════════════════════════════════════════════════════════
+const ESCROW_ABI_PORTAL = [
+  { inputs: [{ name: "leaseId", type: "uint256" }], name: "getLease", outputs: [{ components: [{ name: "lessor", type: "address" }, { name: "lessee", type: "address" }, { name: "arbitrator", type: "address" }, { name: "token", type: "address" }, { name: "depositAmount", type: "uint256" }, { name: "releasedAmount", type: "uint256" }, { name: "lockedAmount", type: "uint256" }, { name: "leaseDuration", type: "uint256" }, { name: "startTimestamp", type: "uint256" }, { name: "endTimestamp", type: "uint256" }, { name: "status", type: "uint8" }, { name: "carVIN", type: "string" }, { name: "carDescription", type: "string" }], type: "tuple" }], stateMutability: "view", type: "function" },
+  { inputs: [{ name: "leaseId", type: "uint256" }], name: "getConditions", outputs: [{ components: [{ name: "description", type: "string" }, { name: "basisPoints", type: "uint256" }, { name: "completed", type: "bool" }, { name: "releasedAmount", type: "uint256" }], type: "tuple[]" }], stateMutability: "view", type: "function" },
+];
+
+const TOKENS_PORTAL = {
+  '0x0000000000000000000000000000000000000000': { symbol: 'ETH', decimals: 18 },
+  '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': { symbol: 'USDC', decimals: 6 },
+  '0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf': { symbol: 'cbBTC', decimals: 8 },
+};
+
+async function loadEscrowOnchain() {
+  const esc = window._escrowData;
+  if (!esc || !esc.contrato_address || !esc.lease_id) {
+    document.getElementById('escrow-onchain-section').style.display = 'none';
+    document.getElementById('escrow-no-onchain').style.display = 'block';
+    return;
+  }
+
+  document.getElementById('escrow-onchain-section').style.display = 'block';
+  document.getElementById('escrow-no-onchain').style.display = 'none';
+  document.getElementById('oc-basescan-link').href = 'https://basescan.org/address/' + esc.contrato_address;
+
+  await refreshEscrowOnchain();
+}
+
+async function refreshEscrowOnchain() {
+  const esc = window._escrowData;
+  if (!esc || !esc.contrato_address) return;
+
+  try {
+    const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
+    const contract = new ethers.Contract(esc.contrato_address, ESCROW_ABI_PORTAL, provider);
+    const [lease, conditions] = await Promise.all([
+      contract.getLease(esc.lease_id),
+      contract.getConditions(esc.lease_id)
+    ]);
+
+    const tokenInfo = TOKENS_PORTAL[lease.token.toLowerCase()] || { symbol: 'TOKEN', decimals: 18 };
+    const total = parseFloat(ethers.formatUnits(lease.depositAmount, tokenInfo.decimals));
+    const liberado = parseFloat(ethers.formatUnits(lease.releasedAmount, tokenInfo.decimals));
+    const bloqueado = parseFloat(ethers.formatUnits(lease.lockedAmount, tokenInfo.decimals));
+    const pct = total > 0 ? Math.round((liberado / total) * 100) : 0;
+
+    document.getElementById('oc-total').textContent = total.toFixed(2) + ' ' + tokenInfo.symbol;
+    document.getElementById('oc-liberado').textContent = liberado.toFixed(2) + ' ' + tokenInfo.symbol;
+    document.getElementById('oc-bloqueado').textContent = bloqueado.toFixed(2) + ' ' + tokenInfo.symbol;
+    document.getElementById('oc-pct').textContent = pct + '%';
+    setTimeout(() => { document.getElementById('oc-progress').style.width = pct + '%'; }, 100);
+
+    // Render condiciones
+    const condsEl = document.getElementById('condiciones-list');
+    if (conditions && conditions.length) {
+      let html = '';
+      conditions.forEach((c, i) => {
+        const isDone = c.completed;
+        const monto = parseFloat(ethers.formatUnits(c.releasedAmount, tokenInfo.decimals));
+        html += '<div class="condicion-row' + (isDone ? ' done' : '') + '">';
+        html += '<span class="condicion-icon">' + (isDone ? '✅' : '⏳') + '</span>';
+        html += '<div class="condicion-info">';
+        html += '<div class="condicion-desc">' + c.description + '</div>';
+        html += '<div class="condicion-meta">' + (c.basisPoints / 100) + '% · índice #' + i + '</div>';
+        html += '</div>';
+        html += '<div class="condicion-monto ' + (isDone ? 'done' : 'pending') + '">' + (isDone ? monto.toFixed(4) + ' ' + tokenInfo.symbol : '—') + '</div>';
+        html += '</div>';
+      });
+      condsEl.innerHTML = html;
+    }
+
+    // Historial - link a Basescan transactions
+    const histEl = document.getElementById('escrow-historial');
+    histEl.innerHTML = '<div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:14px">' +
+      '<div style="font-size:13px;color:var(--text2);margin-bottom:10px">Ver todas las transacciones del contrato en Basescan:</div>' +
+      '<a href="https://basescan.org/address/' + esc.contrato_address + '#internaltx" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:var(--blue-bg);color:var(--blue);border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;text-decoration:none">🔍 Ver transacciones en Basescan ↗</a>' +
+      '<div style="margin-top:10px;font-size:12px;color:var(--text3)">Lease ID on-chain: <span style="font-family:monospace;color:var(--text2)">#' + esc.lease_id + '</span></div>' +
+      '<div style="font-size:12px;color:var(--text3);margin-top:4px">Contrato: <span style="font-family:monospace;color:var(--blue)">' + esc.contrato_address.slice(0,10) + '...' + esc.contrato_address.slice(-6) + '</span></div>' +
+    '</div>';
+
+  } catch(e) {
+    document.getElementById('oc-total').textContent = 'Error';
+    console.error('Error loading onchain data:', e);
   }
 }
 
