@@ -933,6 +933,69 @@ body {
         </div>
       </div>
 
+      <!-- Tab: Liquidacion -->
+      <div class="tab-panel" id="tab-liquidacion">
+        <div style="padding:0 24px 8px;display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:13px;font-weight:600;color:var(--text2)">Cuadro de amortización</div>
+          <button onclick="exportarLiquidacionPortal()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2)">⬇ Excel</button>
+        </div>
+        <div style="overflow-x:auto;padding:0 24px 24px;max-height:480px;overflow-y:auto">
+          <table class="cuotas-table" id="table-liq-portal">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Vencimiento</th>
+                <th>Cuota</th>
+                <th>Capital</th>
+                <th>Interés</th>
+                <th>Saldo</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-liq-portal"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab: Documentos -->
+      <div class="tab-panel" id="tab-documentos">
+        <div style="padding:0 24px 24px">
+          <div style="margin-bottom:20px">
+            <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">Mis documentos</div>
+            <div style="font-size:13px;color:var(--text2)">Subí tu documentación para completar el legajo.</div>
+          </div>
+
+          <!-- Upload area -->
+          <div style="border:2px dashed var(--border2);border-radius:var(--radius);padding:28px;text-align:center;margin-bottom:20px;cursor:pointer;transition:all 0.2s" id="upload-area" onclick="document.getElementById('file-input').click()" onmouseover="this.style.borderColor='var(--text)'" onmouseout="this.style.borderColor='var(--border2)'">
+            <div style="font-size:28px;margin-bottom:8px">📎</div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px">Subir documento</div>
+            <div style="font-size:12px;color:var(--text3)">PDF, JPG, PNG — máx. 10MB</div>
+            <input type="file" id="file-input" style="display:none" accept=".pdf,.jpg,.jpeg,.png" onchange="subirDocumento(this)"/>
+          </div>
+
+          <!-- Tipo de documento -->
+          <div style="margin-bottom:16px">
+            <label style="display:block;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Tipo de documento</label>
+            <select id="tipo-documento" style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:11px 14px;font-family:var(--sans);font-size:14px;color:var(--text);outline:none">
+              <option value="dni">DNI</option>
+              <option value="recibo_sueldo">Recibo de sueldo</option>
+              <option value="afip">Constancia AFIP</option>
+              <option value="estatuto">Estatuto / Poder</option>
+              <option value="balance">Balance</option>
+              <option value="seguro">Póliza de seguro</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+
+          <div id="upload-msg" style="margin-bottom:16px"></div>
+
+          <!-- Lista de documentos -->
+          <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">Documentos subidos</div>
+          <div id="lista-documentos">
+            <div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Sin documentos subidos aún</div>
+          </div>
+        </div>
+      </div>
       <!-- Tab: Condiciones -->
       <div class="tab-panel" id="tab-condiciones">
         <div style="padding:20px 24px">
@@ -2330,68 +2393,72 @@ document.querySelectorAll('.otp-input').forEach((input, idx) => {
 </script>
 </body>
 </html>
-      <!-- Tab: Liquidacion -->
-      <div class="tab-panel" id="tab-liquidacion">
-        <div style="padding:0 24px 8px;display:flex;justify-content:space-between;align-items:center">
-          <div style="font-size:13px;font-weight:600;color:var(--text2)">Cuadro de amortización</div>
-          <button onclick="exportarLiquidacionPortal()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2)">⬇ Excel</button>
-        </div>
-        <div style="overflow-x:auto;padding:0 24px 24px;max-height:480px;overflow-y:auto">
-          <table class="cuotas-table" id="table-liq-portal">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Vencimiento</th>
-                <th>Cuota</th>
-                <th>Capital</th>
-                <th>Interés</th>
-                <th>Saldo</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody id="tbody-liq-portal"></tbody>
-          </table>
-        </div>
+<!-- ══ DEPOSIT MODAL ══════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="deposit-modal">
+  <div class="modal-card">
+    <div class="modal-title">Depositar en escrow</div>
+    <div class="modal-subtitle">Conectá tu wallet y depositá los fondos para activar el contrato en blockchain.</div>
+
+    <div class="modal-info" id="modal-lease-info">
+      <div class="modal-info-row">
+        <span class="modal-info-key">Lease ID</span>
+        <span class="modal-info-val" id="modal-lease-id">—</span>
       </div>
-
-      <!-- Tab: Documentos -->
-      <div class="tab-panel" id="tab-documentos">
-        <div style="padding:0 24px 24px">
-          <div style="margin-bottom:20px">
-            <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">Mis documentos</div>
-            <div style="font-size:13px;color:var(--text2)">Subí tu documentación para completar el legajo.</div>
-          </div>
-
-          <!-- Upload area -->
-          <div style="border:2px dashed var(--border2);border-radius:var(--radius);padding:28px;text-align:center;margin-bottom:20px;cursor:pointer;transition:all 0.2s" id="upload-area" onclick="document.getElementById('file-input').click()" onmouseover="this.style.borderColor='var(--text)'" onmouseout="this.style.borderColor='var(--border2)'">
-            <div style="font-size:28px;margin-bottom:8px">📎</div>
-            <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px">Subir documento</div>
-            <div style="font-size:12px;color:var(--text3)">PDF, JPG, PNG — máx. 10MB</div>
-            <input type="file" id="file-input" style="display:none" accept=".pdf,.jpg,.jpeg,.png" onchange="subirDocumento(this)"/>
-          </div>
-
-          <!-- Tipo de documento -->
-          <div style="margin-bottom:16px">
-            <label style="display:block;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Tipo de documento</label>
-            <select id="tipo-documento" style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:11px 14px;font-family:var(--sans);font-size:14px;color:var(--text);outline:none">
-              <option value="dni">DNI</option>
-              <option value="recibo_sueldo">Recibo de sueldo</option>
-              <option value="afip">Constancia AFIP</option>
-              <option value="estatuto">Estatuto / Poder</option>
-              <option value="balance">Balance</option>
-              <option value="seguro">Póliza de seguro</option>
-              <option value="otro">Otro</option>
-            </select>
-          </div>
-
-          <div id="upload-msg" style="margin-bottom:16px"></div>
-
-          <!-- Lista de documentos -->
-          <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">Documentos subidos</div>
-          <div id="lista-documentos">
-            <div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Sin documentos subidos aún</div>
-          </div>
-        </div>
+      <div class="modal-info-row">
+        <span class="modal-info-key">Monto</span>
+        <span class="modal-info-val" id="modal-monto">—</span>
       </div>
+      <div class="modal-info-row">
+        <span class="modal-info-key">Token</span>
+        <span class="modal-info-val" id="modal-token">—</span>
+      </div>
+      <div class="modal-info-row">
+        <span class="modal-info-key">Red</span>
+        <span class="modal-info-val">Base Mainnet</span>
+      </div>
+    </div>
+
+    <div class="wallet-steps">
+      <div class="wallet-step" id="step-connect">
+        <div class="step-num">1</div>
+        <div class="step-info">
+          <div class="step-label">Conectar wallet</div>
+          <div class="step-desc" id="step-connect-desc">MetaMask, Coinbase Wallet u otra</div>
+        </div>
+        <div class="step-status" id="step-connect-icon">○</div>
+      </div>
+      <div class="wallet-step" id="step-approve" style="display:none">
+        <div class="step-num">2</div>
+        <div class="step-info">
+          <div class="step-label">Aprobar token</div>
+          <div class="step-desc" id="step-approve-desc">Autorizar al contrato a usar tus fondos</div>
+        </div>
+        <div class="step-status" id="step-approve-icon">○</div>
+      </div>
+      <div class="wallet-step" id="step-deposit">
+        <div class="step-num" id="step-deposit-num">2</div>
+        <div class="step-info">
+          <div class="step-label">Firmar depósito</div>
+          <div class="step-desc">Confirmar la transacción en tu wallet</div>
+        </div>
+        <div class="step-status" id="step-deposit-icon">○</div>
+      </div>
+    </div>
+
+    <button class="deposit-btn" id="btn-deposit-action" onclick="handleDepositAction()">
+      <span id="deposit-action-text">Conectar wallet</span>
+      <div class="spinner" id="deposit-spinner" style="display:none;border-top-color:white"></div>
+    </button>
+    <button class="modal-close" onclick="closeDepositModal()">Cancelar</button>
+    <div id="deposit-msg" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+
+</body>
+</html>
 
 
