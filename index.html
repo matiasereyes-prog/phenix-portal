@@ -1,0 +1,1772 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AutoLease · Mi Contrato</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+/* ── TOKENS ──────────────────────────────────────────────────────── */
+:root {
+  --bg:        #faf9f7;
+  --bg2:       #f2f0ed;
+  --surface:   #ffffff;
+  --surface2:  #f7f5f2;
+  --border:    #e8e4de;
+  --border2:   #d4cfc8;
+  --accent:    #ff6b6b;
+  --accent2:   #e55555;
+  --accent-bg: #fff0f0;
+  --green:     #00a651;
+  --green-bg:  #e8f7ee;
+  --yellow:    #f59e0b;
+  --yellow-bg: #fff8e7;
+  --red:       #e53e3e;
+  --red-bg:    #fff5f5;
+  --blue:      #3366ff;
+  --blue-bg:   #eef2ff;
+  --text:      #111111;
+  --text2:     #555555;
+  --text3:     #999999;
+  --mono:      'JetBrains Mono', monospace;
+  --sans:      'Inter', sans-serif;
+  --radius:    16px;
+  --radius-sm: 10px;
+  --shadow:    0 2px 12px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.10);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── LOGIN ───────────────────────────────────────────────────────── */
+#login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 40px;
+  box-shadow: var(--shadow-lg);
+}
+
+.login-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 36px;
+}
+
+.login-logo-icon {
+  width: 38px;
+  height: 38px;
+  background: var(--accent);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.login-logo-text {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.5px;
+}
+
+.login-logo-text span { color: var(--accent); }
+
+.login-title {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 8px;
+  letter-spacing: -0.8px;
+  line-height: 1.2;
+}
+
+.login-subtitle {
+  font-size: 14px;
+  color: var(--text2);
+  margin-bottom: 28px;
+  line-height: 1.6;
+}
+
+.field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 8px;
+}
+
+.field-input {
+  width: 100%;
+  background: var(--surface2);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 13px 16px;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.field-input:focus { border-color: var(--text); }
+.field-input::placeholder { color: var(--text3); }
+.field-group { margin-bottom: 18px; }
+
+.btn {
+  width: 100%;
+  padding: 15px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-primary {
+  background: var(--text);
+  color: white;
+  margin-top: 4px;
+  letter-spacing: -0.2px;
+}
+
+.btn-primary:hover:not(:disabled) { background: #333; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text2);
+  border: 2px solid var(--border);
+  margin-top: 10px;
+  font-size: 14px;
+}
+.btn-ghost:hover { border-color: var(--border2); color: var(--text); }
+
+.otp-inputs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  justify-content: center;
+}
+
+.otp-input {
+  width: 48px;
+  height: 60px;
+  flex: 0 0 48px;
+  background: var(--surface2);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 700;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.otp-input:focus { border-color: var(--text); background: white; }
+
+.otp-hint {
+  font-size: 13px;
+  color: var(--text3);
+  text-align: center;
+  margin-bottom: 16px;
+}
+.otp-hint strong { color: var(--text2); }
+
+.login-error {
+  background: var(--red-bg);
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  color: var(--red);
+  font-size: 13px;
+  margin-top: 12px;
+  font-weight: 500;
+}
+
+.login-success {
+  background: var(--green-bg);
+  border: 1px solid #a7f3d0;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  color: var(--green);
+  font-size: 13px;
+  margin-top: 12px;
+  font-weight: 500;
+}
+
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── APP SHELL ────────────────────────────────────────────────────── */
+#app-screen { display: none; min-height: 100vh; background: var(--bg); }
+
+.topbar {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(250,249,247,0.92);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.topbar-logo {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 18px; font-weight: 800; color: var(--text); letter-spacing: -0.5px;
+}
+
+.topbar-logo-icon {
+  width: 34px; height: 34px;
+  background: var(--accent);
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+
+.user-chip {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 30px;
+  padding: 5px 14px 5px 5px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.user-chip:hover { border-color: var(--border2); }
+
+.user-avatar {
+  width: 28px; height: 28px;
+  background: var(--text);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: white;
+}
+
+.user-name { font-size: 13px; font-weight: 600; color: var(--text2); }
+
+.logout-btn {
+  background: transparent;
+  border: 1.5px solid var(--border);
+  color: var(--text3);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-family: var(--sans);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.logout-btn:hover { color: var(--red); border-color: #fca5a5; }
+
+.main-content {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 36px 24px 80px;
+}
+
+/* ── BADGES ───────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 700; padding: 4px 12px;
+  border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;
+  font-family: var(--sans);
+}
+
+.badge-green  { background: var(--green-bg);  color: var(--green);  }
+.badge-yellow { background: var(--yellow-bg); color: #92400e; }
+.badge-red    { background: var(--red-bg);    color: var(--red);    }
+.badge-blue   { background: var(--blue-bg);   color: var(--blue);   }
+.badge-purple { background: #f5f3ff;          color: #6d28d9;       }
+.badge-gray   { background: #f3f4f6;          color: #6b7280;       }
+
+.dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* ── HERO DEL CONTRATO ────────────────────────────────────────────── */
+.contrato-hero {
+  background: var(--text);
+  border-radius: 20px;
+  padding: 32px;
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.contrato-hero::before {
+  content: '🚗';
+  position: absolute;
+  right: 24px; top: 50%;
+  transform: translateY(-50%);
+  font-size: 120px;
+  opacity: 0.06;
+  pointer-events: none;
+  line-height: 1;
+}
+
+.contrato-hero-top {
+  display: flex; align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 28px; gap: 16px;
+}
+
+.contrato-auto {
+  font-size: 30px; font-weight: 800;
+  color: white; letter-spacing: -0.8px; line-height: 1.1;
+}
+
+.contrato-vin {
+  font-size: 12px; color: rgba(255,255,255,0.4);
+  font-family: var(--mono); margin-top: 6px;
+}
+
+.contrato-stats {
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 20px;
+}
+
+.stat-label {
+  font-size: 11px; color: rgba(255,255,255,0.45);
+  text-transform: uppercase; letter-spacing: 0.8px;
+  font-weight: 600; margin-bottom: 6px;
+}
+
+.stat-value {
+  font-size: 20px; font-weight: 800; color: white;
+  font-family: var(--mono); letter-spacing: -0.5px;
+}
+
+.stat-sub { font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 3px; }
+
+/* ── ESCROW CARD ──────────────────────────────────────────────────── */
+.escrow-card {
+  background: white;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  padding: 28px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+}
+
+.escrow-header {
+  display: flex; align-items: center;
+  justify-content: space-between; margin-bottom: 24px;
+}
+
+.escrow-title {
+  font-size: 15px; font-weight: 700; color: var(--text);
+  display: flex; align-items: center; gap: 8px;
+}
+
+.chain-badge {
+  display: flex; align-items: center; gap: 5px;
+  background: var(--blue-bg);
+  border-radius: 20px; padding: 4px 12px;
+  font-size: 11px; color: var(--blue);
+  font-weight: 700;
+}
+
+.escrow-amounts {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px; margin-bottom: 24px;
+}
+
+.amount-label {
+  font-size: 11px; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.8px;
+  font-weight: 700; margin-bottom: 6px;
+}
+
+.amount-value { font-size: 22px; font-weight: 800; font-family: var(--mono); letter-spacing: -0.5px; }
+.amount-value.total  { color: var(--text); }
+.amount-value.libre  { color: var(--green); }
+.amount-value.bloq   { color: var(--yellow); }
+.amount-token { font-size: 11px; color: var(--text3); margin-top: 3px; font-weight: 600; }
+
+.progress-label {
+  display: flex; justify-content: space-between;
+  font-size: 12px; color: var(--text3); font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.progress-bar {
+  width: 100%; height: 10px;
+  background: var(--bg2); border-radius: 5px;
+  overflow: hidden; margin-bottom: 20px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--blue) 0%, var(--green) 100%);
+  border-radius: 5px; transition: width 1s ease;
+}
+
+.contract-address {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+}
+
+.contract-address-label {
+  font-size: 11px; color: var(--text3); white-space: nowrap; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+
+.contract-address-value {
+  font-size: 12px; color: var(--blue);
+  font-family: var(--mono); flex: 1;
+  word-break: break-all; cursor: pointer;
+}
+.contract-address-value:hover { text-decoration: underline; }
+
+.copy-btn {
+  background: transparent; border: none; color: var(--text3);
+  cursor: pointer; font-size: 16px; padding: 2px;
+  transition: color 0.2s; flex-shrink: 0;
+}
+.copy-btn:hover { color: var(--text); }
+
+/* ── MAIN CARD ────────────────────────────────────────────────────── */
+.card {
+  background: white;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  margin-bottom: 20px;
+}
+
+.card-header {
+  padding: 20px 24px;
+  border-bottom: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.card-title {
+  font-size: 15px; font-weight: 700; color: var(--text);
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* ── TABS ─────────────────────────────────────────────────────────── */
+.tabs {
+  display: flex; gap: 0;
+  border-bottom: 1.5px solid var(--border);
+  padding: 0 24px;
+  margin-bottom: 0;
+}
+
+.tab {
+  padding: 16px 20px; border: none; border-bottom: 3px solid transparent;
+  background: transparent; color: var(--text3);
+  font-family: var(--sans); font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s; margin-bottom: -1.5px;
+}
+
+.tab.active { color: var(--text); border-bottom-color: var(--text); }
+.tab:hover:not(.active) { color: var(--text2); }
+
+.tab-panel { display: none; padding: 24px; }
+.tab-panel.active { display: block; }
+
+/* ── FILTROS ──────────────────────────────────────────────────────── */
+.cuotas-filters { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+
+.filter-btn {
+  background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: 20px; padding: 5px 16px;
+  font-size: 13px; font-family: var(--sans);
+  color: var(--text2); cursor: pointer; transition: all 0.15s; font-weight: 600;
+}
+
+.filter-btn.active, .filter-btn:hover {
+  background: var(--text); border-color: var(--text); color: white;
+}
+
+/* ── TABLA DE CUOTAS ──────────────────────────────────────────────── */
+.cuotas-table { width: 100%; border-collapse: collapse; }
+
+.cuotas-table th {
+  text-align: left; font-size: 11px; font-weight: 700; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.8px;
+  padding: 10px 12px; border-bottom: 1.5px solid var(--border);
+  white-space: nowrap; background: var(--surface2);
+}
+
+.cuotas-table td {
+  padding: 13px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px; color: var(--text2); vertical-align: middle;
+}
+
+.cuotas-table tr:last-child td { border-bottom: none; }
+.cuotas-table tbody tr:hover td { background: var(--surface2); }
+
+.cuota-num { font-family: var(--mono); color: var(--text3); font-size: 12px; font-weight: 600; }
+.cuota-monto { font-family: var(--mono); color: var(--text); font-weight: 700; font-size: 14px; }
+.fecha-pago { font-family: var(--mono); font-size: 12px; font-weight: 500; }
+
+.adicionales-list { display: flex; flex-direction: column; gap: 3px; }
+.adicional-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text3); font-weight: 500; }
+.adicional-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
+
+/* ── CONDICIONES ──────────────────────────────────────────────────── */
+.condiciones-grid { display: flex; flex-direction: column; gap: 6px; }
+
+.condicion-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-radius: 12px;
+  border: 1.5px solid var(--border); background: var(--surface2);
+  transition: border-color 0.2s;
+}
+
+.condicion-row.done { border-color: #a7f3d0; background: var(--green-bg); }
+
+.condicion-icon { font-size: 14px; flex-shrink: 0; }
+.condicion-info { flex: 1; }
+.condicion-desc { font-size: 13px; color: var(--text); font-weight: 600; }
+.condicion-meta { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-top: 2px; }
+.condicion-monto { font-family: var(--mono); font-size: 13px; font-weight: 700; text-align: right; }
+.condicion-monto.done { color: var(--green); }
+.condicion-monto.pending { color: var(--text3); }
+.condicion-idx { font-size: 11px; color: var(--text3); font-family: var(--mono); width: 24px; text-align: center; flex-shrink: 0; font-weight: 600; }
+
+/* ── INFO GRID ────────────────────────────────────────────────────── */
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.info-key { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; margin-bottom: 4px; }
+.info-val { font-size: 14px; color: var(--text); font-weight: 600; }
+
+/* ── EMPTY / NO CONTRATO ──────────────────────────────────────────── */
+.empty-state { text-align: center; padding: 48px 24px; color: var(--text3); }
+.empty-state-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
+.empty-state-text { font-size: 14px; font-weight: 500; line-height: 1.6; }
+
+/* ── DEPOSIT MODAL ────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.modal-overlay.show { opacity: 1; pointer-events: all; }
+
+.modal-card {
+  background: white; border-radius: 24px;
+  padding: 36px; width: 100%; max-width: 420px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.2);
+  transform: translateY(20px); transition: transform 0.2s;
+}
+.modal-overlay.show .modal-card { transform: translateY(0); }
+
+.modal-title {
+  font-size: 24px; font-weight: 800; color: var(--text);
+  letter-spacing: -0.5px; margin-bottom: 6px;
+}
+.modal-subtitle { font-size: 14px; color: var(--text2); margin-bottom: 24px; line-height: 1.5; }
+
+.modal-info {
+  background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: 12px; padding: 16px; margin-bottom: 20px;
+}
+.modal-info-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid var(--border);
+}
+.modal-info-row:last-child { border-bottom: none; }
+.modal-info-key { font-size: 12px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.modal-info-val { font-size: 13px; color: var(--text); font-weight: 700; font-family: var(--mono); }
+
+.wallet-steps { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+
+.wallet-step {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; border-radius: 12px;
+  border: 1.5px solid var(--border); background: var(--surface2);
+  transition: all 0.2s;
+}
+.wallet-step.active { border-color: var(--blue); background: var(--blue-bg); }
+.wallet-step.done { border-color: #a7f3d0; background: var(--green-bg); }
+.wallet-step.error-step { border-color: #fca5a5; background: var(--red-bg); }
+
+.step-num {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--border); color: var(--text3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; flex-shrink: 0;
+  transition: all 0.2s;
+}
+.wallet-step.active .step-num { background: var(--blue); color: white; }
+.wallet-step.done .step-num { background: var(--green); color: white; }
+.wallet-step.error-step .step-num { background: var(--red); color: white; }
+
+.step-info { flex: 1; }
+.step-label { font-size: 13px; font-weight: 700; color: var(--text); }
+.step-desc { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.step-status { font-size: 14px; flex-shrink: 0; }
+
+.deposit-btn {
+  width: 100%; padding: 16px; border: none;
+  border-radius: 12px; background: var(--text); color: white;
+  font-family: var(--sans); font-size: 15px; font-weight: 700;
+  cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin-bottom: 10px;
+}
+.deposit-btn:hover:not(:disabled) { background: #333; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+.deposit-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.deposit-btn.success { background: var(--green); }
+
+.modal-close {
+  width: 100%; padding: 12px; border: 1.5px solid var(--border);
+  border-radius: 12px; background: transparent; color: var(--text2);
+  font-family: var(--sans); font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+}
+.modal-close:hover { border-color: var(--border2); color: var(--text); }
+
+.escrow-activate-banner {
+  background: var(--text); border-radius: 16px; padding: 24px 28px;
+  margin-bottom: 20px; display: flex; align-items: center;
+  justify-content: space-between; gap: 16px; box-shadow: var(--shadow);
+}
+.banner-text { }
+.banner-title { font-size: 17px; font-weight: 800; color: white; letter-spacing: -0.3px; }
+.banner-desc { font-size: 13px; color: rgba(255,255,255,0.5); margin-top: 4px; }
+.banner-btn {
+  background: var(--accent); color: white; border: none;
+  border-radius: 10px; padding: 12px 22px;
+  font-family: var(--sans); font-size: 14px; font-weight: 700;
+  cursor: pointer; white-space: nowrap; transition: all 0.15s; flex-shrink: 0;
+}
+.banner-btn:hover { background: var(--accent2); transform: translateY(-1px); }
+
+/* ── TOAST ────────────────────────────────────────────────────────── */
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--text); color: white;
+  border-radius: 10px; padding: 12px 18px;
+  font-size: 13px; font-weight: 600;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  z-index: 9999; animation: slideUp 0.3s ease; display: none;
+}
+.toast.show { display: block; }
+@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* ── NO ESCROW ────────────────────────────────────────────────────── */
+#no-escrow-card {
+  background: white; border: 1.5px solid var(--border);
+  border-radius: 20px; margin-bottom: 20px;
+  box-shadow: var(--shadow);
+}
+
+/* ── RESPONSIVE ───────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .contrato-stats { grid-template-columns: repeat(2,1fr); }
+  .escrow-amounts { grid-template-columns: 1fr 1fr; }
+  .info-grid { grid-template-columns: 1fr; }
+  .topbar { padding: 0 16px; }
+  .main-content { padding: 20px 16px 60px; }
+  .contrato-hero { padding: 24px; }
+  .login-card { padding: 28px 24px; }
+  .tab { padding: 12px 14px; font-size: 13px; }
+}
+
+@media (max-width: 480px) {
+  .contrato-stats { grid-template-columns: 1fr 1fr; }
+  .cuotas-table td, .cuotas-table th { padding: 10px 8px; font-size: 12px; }
+  .otp-input { width: 42px; height: 52px; font-size: 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ════════════════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">🚗</div>
+      <div class="login-logo-text">Auto<span>Lease</span></div>
+    </div>
+
+    <!-- Step 1: Email -->
+    <div id="step-email">
+      <div class="login-title">Mi contrato</div>
+      <div class="login-subtitle">Ingresá tu email para acceder al estado de tu leasing y recibir un código de verificación.</div>
+      <div class="field-group">
+        <label class="field-label" for="email-input">Email</label>
+        <input id="email-input" class="field-input" type="email" placeholder="tu@email.com" autocomplete="email"/>
+      </div>
+      <button class="btn btn-primary" id="btn-send-otp" onclick="sendOTP()">
+        <span id="btn-send-text">Enviar código</span>
+        <div class="spinner" id="spinner-send" style="display:none"></div>
+      </button>
+      <div id="email-msg"></div>
+    </div>
+
+    <!-- Step 2: Magic Link enviado -->
+    <div id="step-otp" style="display:none">
+      <div style="text-align:center;padding:20px 0">
+        <div style="font-size:48px;margin-bottom:16px">📬</div>
+        <div class="login-title">Revisá tu correo</div>
+        <div class="login-subtitle" id="otp-subtitle" style="margin-bottom:24px">Te enviamos un link de acceso. Hacé click en él para ingresar.</div>
+        <div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:14px;font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.6">
+          El link expira en <strong>10 minutos</strong>.<br/>Revisá tu carpeta de spam si no llegó.
+        </div>
+      </div>
+      <button class="btn btn-ghost" onclick="backToEmail()">← Cambiar email</button>
+      <div id="otp-msg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP ═══════════════════════════════════════════════════════════ -->
+<div id="app-screen">
+  <nav class="topbar">
+    <div class="topbar-logo">
+      <div class="topbar-logo-icon">🚗</div>
+      Auto<span style="color:var(--accent)">Lease</span>
+    </div>
+    <div class="topbar-right">
+      <div class="user-chip">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <span class="user-name" id="user-name-display">—</span>
+      </div>
+      <button class="logout-btn" onclick="logout()">Salir</button>
+    </div>
+  </nav>
+
+  <div class="main-content">
+
+    <!-- Hero del contrato -->
+    <div class="contrato-hero" id="contrato-hero" style="display:none">
+      <div class="contrato-hero-top">
+        <div>
+          <div class="contrato-auto" id="hero-auto">—</div>
+          <div class="contrato-vin" id="hero-vin">VIN: —</div>
+        </div>
+        <div id="hero-status"></div>
+      </div>
+      <div class="contrato-stats">
+        <div class="stat-item">
+          <div class="stat-label">Canon mensual</div>
+          <div class="stat-value" id="hero-canon">—</div>
+          <div class="stat-sub" id="hero-canon-sub"></div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Cuotas pagadas</div>
+          <div class="stat-value" id="hero-cuotas">—</div>
+          <div class="stat-sub" id="hero-cuotas-sub"></div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Próximo vencimiento</div>
+          <div class="stat-value" id="hero-vencimiento">—</div>
+          <div class="stat-sub" id="hero-vencimiento-sub"></div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Escrow</div>
+          <div class="stat-value" id="hero-escrow">—</div>
+          <div class="stat-sub" id="hero-escrow-sub"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sin contrato -->
+    <div id="no-contrato" style="display:none" class="card">
+      <div class="empty-state">
+        <div class="empty-state-icon">📋</div>
+        <div class="empty-state-text">No encontramos un contrato asociado a tu email.<br/>Contactá a tu ejecutivo de ventas.</div>
+      </div>
+    </div>
+
+    <!-- Banner activar escrow -->
+    <div class="escrow-activate-banner" id="deposit-banner" style="display:none">
+      <div class="banner-text">
+        <div class="banner-title">⚡ Activá tu escrow</div>
+        <div class="banner-desc">Depositá los fondos para activar tu contrato en blockchain</div>
+      </div>
+      <button class="banner-btn" onclick="openDepositModal()">Depositar fondos →</button>
+    </div>
+
+    <!-- Escrow -->
+    <div class="escrow-card" id="escrow-card" style="display:none">
+      <div class="escrow-header">
+        <div class="escrow-title">🔒 Escrow en blockchain</div>
+        <div class="chain-badge">● Base Mainnet</div>
+      </div>
+      <div class="escrow-amounts">
+        <div class="amount-item">
+          <div class="amount-label">Total depositado</div>
+          <div class="amount-value total" id="escrow-total">—</div>
+          <div class="amount-token" id="escrow-token">—</div>
+        </div>
+        <div class="amount-item">
+          <div class="amount-label">Liberado</div>
+          <div class="amount-value libre" id="escrow-libre">—</div>
+          <div class="amount-token" id="escrow-libre-pct">—</div>
+        </div>
+        <div class="amount-item">
+          <div class="amount-label">Bloqueado</div>
+          <div class="amount-value bloq" id="escrow-bloq">—</div>
+          <div class="amount-token" id="escrow-bloq-pct">—</div>
+        </div>
+      </div>
+      <div class="progress-label">
+        <span>Progreso del escrow</span>
+        <span id="escrow-pct-label">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="escrow-progress" style="width:0%"></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:16px">
+        <button onclick="openDepositModal()" id="btn-deposit-escrow" style="flex:1;padding:12px;background:var(--text);color:white;border:none;border-radius:10px;font-family:var(--sans);font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='#333'" onmouseout="this.style.background='var(--text)'">
+          + Depositar más fondos
+        </button>
+        <a id="basescan-link" href="#" target="_blank" style="flex:1;padding:12px;background:var(--blue-bg);color:var(--blue);border:none;border-radius:10px;font-family:var(--sans);font-size:13px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center;">
+          Ver en Basescan ↗
+        </a>
+      </div>
+      <div class="contract-address">
+        <span class="contract-address-label">Contrato</span>
+        <span class="contract-address-value" id="escrow-address" onclick="openBasescan()">—</span>
+        <button class="copy-btn" onclick="copyAddress()" title="Copiar dirección">⧉</button>
+      </div>
+    </div>
+
+    <!-- No escrow -->
+    <div id="no-escrow-card" style="display:none" class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <div class="card-title"><div class="card-title-icon">🔒</div> Escrow blockchain</div>
+      </div>
+      <div style="padding:24px;text-align:center;color:var(--text3)">
+        <div style="font-size:32px;margin-bottom:8px;opacity:0.4">⛓️</div>
+        <div style="font-size:13px">El escrow aún no fue activado para este contrato.<br/>Tu ejecutivo te notificará cuando esté listo para depositar.</div>
+      </div>
+    </div>
+
+    <!-- Tabs: Cuotas / Condiciones / Info -->
+    <div class="card" id="main-tabs-card" style="display:none">
+      <div style="padding:20px 24px 0">
+        <div class="tabs">
+          <button class="tab active" onclick="switchTab('cuotas')">Cuotas</button>
+          <button class="tab" onclick="switchTab('condiciones')">Condiciones escrow</button>
+          <button class="tab" onclick="switchTab('info')">Datos del contrato</button>
+        </div>
+      </div>
+
+      <!-- Tab: Cuotas -->
+      <div class="tab-panel active" id="tab-cuotas">
+        <div style="padding:0 24px 8px">
+          <div class="cuotas-filters">
+            <button class="filter-btn active" onclick="filterCuotas('todas', this)">Todas</button>
+            <button class="filter-btn" onclick="filterCuotas('paga', this)">Pagas</button>
+            <button class="filter-btn" onclick="filterCuotas('pendiente', this)">Pendientes</button>
+            <button class="filter-btn" onclick="filterCuotas('vencida', this)">Vencidas</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="cuotas-table" id="cuotas-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Vencimiento</th>
+                <th>Monto</th>
+                <th>Adicionales</th>
+                <th>Fecha de pago</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="cuotas-tbody">
+              <tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">Cargando cuotas...</div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab: Condiciones -->
+      <div class="tab-panel" id="tab-condiciones">
+        <div style="padding:20px 24px">
+          <div id="condiciones-list">
+            <div class="empty-state"><div class="empty-state-icon">🔒</div><div class="empty-state-text">Sin condiciones registradas.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Info del contrato -->
+      <div class="tab-panel" id="tab-info">
+        <div style="padding:20px 24px">
+          <div class="info-grid" id="info-grid">
+            <div class="empty-state"><div class="empty-state-text">Cargando...</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ══ DEPOSIT MODAL ══════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="deposit-modal">
+  <div class="modal-card">
+    <div class="modal-title">Depositar en escrow</div>
+    <div class="modal-subtitle">Conectá tu wallet y depositá los fondos para activar el contrato en blockchain.</div>
+
+    <div class="modal-info" id="modal-lease-info">
+      <div class="modal-info-row">
+        <span class="modal-info-key">Lease ID</span>
+        <span class="modal-info-val" id="modal-lease-id">—</span>
+      </div>
+      <div class="modal-info-row">
+        <span class="modal-info-key">Monto</span>
+        <span class="modal-info-val" id="modal-monto">—</span>
+      </div>
+      <div class="modal-info-row">
+        <span class="modal-info-key">Token</span>
+        <span class="modal-info-val" id="modal-token">—</span>
+      </div>
+      <div class="modal-info-row">
+        <span class="modal-info-key">Red</span>
+        <span class="modal-info-val">Base Mainnet</span>
+      </div>
+    </div>
+
+    <div class="wallet-steps">
+      <div class="wallet-step" id="step-connect">
+        <div class="step-num">1</div>
+        <div class="step-info">
+          <div class="step-label">Conectar wallet</div>
+          <div class="step-desc" id="step-connect-desc">MetaMask, Coinbase Wallet u otra</div>
+        </div>
+        <div class="step-status" id="step-connect-icon">○</div>
+      </div>
+      <div class="wallet-step" id="step-approve" style="display:none">
+        <div class="step-num">2</div>
+        <div class="step-info">
+          <div class="step-label">Aprobar token</div>
+          <div class="step-desc" id="step-approve-desc">Autorizar al contrato a usar tus fondos</div>
+        </div>
+        <div class="step-status" id="step-approve-icon">○</div>
+      </div>
+      <div class="wallet-step" id="step-deposit">
+        <div class="step-num" id="step-deposit-num">2</div>
+        <div class="step-info">
+          <div class="step-label">Firmar depósito</div>
+          <div class="step-desc">Confirmar la transacción en tu wallet</div>
+        </div>
+        <div class="step-status" id="step-deposit-icon">○</div>
+      </div>
+    </div>
+
+    <button class="deposit-btn" id="btn-deposit-action" onclick="handleDepositAction()">
+      <span id="deposit-action-text">Conectar wallet</span>
+      <div class="spinner" id="deposit-spinner" style="display:none;border-top-color:white"></div>
+    </button>
+    <button class="modal-close" onclick="closeDepositModal()">Cancelar</button>
+    <div id="deposit-msg" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// CONFIGURACION — reemplazá con tus credenciales de Supabase
+// ══════════════════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://xxscdrwkoutlualpveif.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4c2Nkcndrb3V0bHVhbHB2ZWlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0MDkyMTcsImV4cCI6MjEwNDk4NTIxN30.BNM3dg0jFTxjNuhlJPLAjMcGBv1ZbkmLOMm_A9wOk68';
+
+// ══════════════════════════════════════════════════════════════════
+// DATOS DE DEMO (se usan cuando Supabase no está configurado)
+// Reemplazá con datos reales una vez que configures Supabase
+// ══════════════════════════════════════════════════════════════════
+const DEMO_DATA = {
+  contrato: {
+    id: 'C-2026-002',
+    cliente_nombre: 'Jazmin Lopez',
+    cliente_email: 'jazmin@demo.com',
+    auto_descripcion: 'Toyota GR86 2025',
+    auto_vin: 'ssasdadsasd',
+    auto_patente: 'AA 123 BB',
+    estado: 'pendiente',
+    canon_mensual: 850000,
+    canon_moneda: 'ARS',
+    plazo_meses: 36,
+    fecha_inicio: '2026-07-03',
+    fecha_fin: '2029-07-03',
+    valor_vehiculo: 28000000,
+    opcion_compra: 4200000,
+    lessor_nombre: 'AutoLease S.A.',
+    lessor_cuit: '30-71234567-8',
+    ejecutivo: 'Matias Reyes',
+    ejecutivo_email: 'matias@autolease.com',
+    ejecutivo_telefono: '+54 11 5555-1234',
+    escrow: {
+      activo: false,
+      contrato_address: '0xD83e4b9C46f9038506572E9Caf09AD14E27e49cD',
+      token: 'USDC',
+      total: 10,
+      liberado: 0,
+      bloqueado: 10,
+      lease_id: 2
+    }
+  },
+  cuotas: Array.from({ length: 36 }, (_, i) => ({
+    numero: i + 1,
+    fecha_vencimiento: new Date(2026, 6 + i, 3).toISOString().split('T')[0],
+    monto: 850000,
+    estado: 'pendiente',
+    fecha_pago: null,
+    adicionales: i === 0 ? [{ concepto: 'Sellado del contrato', monto: 15000 }] : []
+  })),
+  condiciones: [
+    ...Array.from({length: 36}, (_, i) => ({ index: i, descripcion: `Cuota ${i+1}`, porcentaje: 2.5, estado: 'pendiente', fecha: null, monto: 0.25 })),
+    { index: 36, descripcion: 'Pago final / Opción de compra', porcentaje: 10, estado: 'pendiente', fecha: null, monto: 1 },
+  ]
+};
+
+// ══════════════════════════════════════════════════════════════════
+// INIT SUPABASE
+// ══════════════════════════════════════════════════════════════════
+let sbClient = null;
+let userEmail = '';
+let isDemoMode = false;
+
+try {
+  if (SUPABASE_URL !== 'https://TU-PROYECTO.supabase.co') {
+    sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    isDemoMode = false;
+  }
+} catch(e) { console.warn('Supabase no configurado, usando modo demo'); }
+
+// ══════════════════════════════════════════════════════════════════
+// AUTH — LOGIN
+// ══════════════════════════════════════════════════════════════════
+async function sendOTP() {
+  const email = document.getElementById('email-input').value.trim();
+  if (!email || !email.includes('@')) {
+    showMsg('email-msg', 'Ingresá un email válido.', 'error');
+    return;
+  }
+  userEmail = email;
+  setLoading('btn-send-otp', 'btn-send-text', 'spinner-send', true);
+
+  if (isDemoMode) {
+    await sleep(800);
+    setLoading('btn-send-otp', 'btn-send-text', 'spinner-send', false);
+    document.getElementById('step-email').style.display = 'none';
+    document.getElementById('step-otp').style.display = 'block';
+    document.getElementById('otp-subtitle').textContent = `Modo demo: usá el código 123456 para ingresar.`;
+    document.getElementById('otp-0').focus();
+    return;
+  }
+
+  try {
+    const { error } = await sbClient.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: 'https://phenix-leasing.pages.dev/autolease-portal.html' }
+    });
+    if (error) throw error;
+    setLoading('btn-send-otp', 'btn-send-text', 'spinner-send', false);
+    document.getElementById('step-email').style.display = 'none';
+    document.getElementById('step-otp').style.display = 'block';
+    document.getElementById('otp-subtitle').textContent = `Te enviamos un link a ${email}. Hacé click en él para ingresar.`;
+  } catch(e) {
+    setLoading('btn-send-otp', 'btn-send-text', 'spinner-send', false);
+    showMsg('email-msg', e.message || 'Error al enviar el link.', 'error');
+  }
+}
+
+function handleOTP(event, idx) {
+  const inputs = document.querySelectorAll('.otp-input');
+  const val = event.target.value;
+  if (val && idx < 5) inputs[idx + 1].focus();
+  if (event.key === 'Backspace' && !val && idx > 0) inputs[idx - 1].focus();
+  // Auto-verify when all filled
+  const code = Array.from(inputs).map(i => i.value).join('');
+  if (code.length === 6) verifyOTP();
+}
+
+async function verifyOTP() {
+  const inputs = document.querySelectorAll('.otp-input');
+  const code = Array.from(inputs).map(i => i.value).join('');
+  if (code.length < 6) { showMsg('otp-msg', 'Ingresá los 6 dígitos del código.', 'error'); return; }
+
+  setLoading('btn-verify-otp', 'btn-verify-text', 'spinner-verify', true);
+
+  if (isDemoMode) {
+    await sleep(800);
+    if (code === '123456') {
+      setLoading('btn-verify-otp', 'btn-verify-text', 'spinner-verify', false);
+      loadApp(DEMO_DATA);
+    } else {
+      setLoading('btn-verify-otp', 'btn-verify-text', 'spinner-verify', false);
+      showMsg('otp-msg', 'Código incorrecto. En modo demo usá 123456.', 'error');
+    }
+    return;
+  }
+
+  try {
+    const { data, error } = await sbClient.auth.verifyOtp({ email: userEmail, token: code, type: 'email' });
+    if (error) throw error;
+    setLoading('btn-verify-otp', 'btn-verify-text', 'spinner-verify', false);
+    const appData = await fetchContratoData(userEmail);
+    loadApp(appData);
+  } catch(e) {
+    setLoading('btn-verify-otp', 'btn-verify-text', 'spinner-verify', false);
+    showMsg('otp-msg', 'Código incorrecto o expirado. Intentá de nuevo.', 'error');
+  }
+}
+
+function backToEmail() {
+  document.getElementById('step-otp').style.display = 'none';
+  document.getElementById('step-email').style.display = 'block';
+  document.getElementById('otp-msg').innerHTML = '';
+  document.querySelectorAll('.otp-input').forEach(i => i.value = '');
+}
+
+async function logout() {
+  if (!isDemoMode && supabase) await sbClient.auth.signOut();
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.querySelectorAll('.otp-input').forEach(i => i.value = '');
+  document.getElementById('email-input').value = '';
+  document.getElementById('step-email').style.display = 'block';
+  document.getElementById('step-otp').style.display = 'none';
+}
+
+// ══════════════════════════════════════════════════════════════════
+// FETCH DATA FROM SUPABASE
+// ══════════════════════════════════════════════════════════════════
+async function fetchContratoData(email) {
+  // 1. Obtener usuario
+  const { data: usuario } = await sbClient
+    .from('usuarios')
+    .select('id, nombre, tipo')
+    .eq('email', email)
+    .single();
+
+  if (!usuario) return null;
+
+  // 2. Obtener contrato con vehiculo
+  const { data: contratoRaw } = await sbClient
+    .from('contratos')
+    .select('*, vehiculos(*)')
+    .eq('usuario_id', usuario.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (!contratoRaw) return null;
+
+  // 3. Obtener cuotas con adicionales
+  const { data: cuotasRaw } = await sbClient
+    .from('cuotas')
+    .select('*, adicionales_cuota(*)')
+    .eq('contrato_id', contratoRaw.id)
+    .order('numero', { ascending: true });
+
+  // 4. Obtener condiciones escrow (solo si aplica)
+  const { data: condicionesRaw } = await sbClient
+    .from('condiciones_escrow')
+    .select('*')
+    .eq('contrato_id', contratoRaw.id)
+    .order('index_onchain', { ascending: true });
+
+  // 5. Mapear al formato que espera el portal
+  const v = contratoRaw.vehiculos;
+  const contrato = {
+    id: contratoRaw.id,
+    cliente_nombre: usuario.nombre,
+    cliente_email: email,
+    auto_descripcion: `${v.marca} ${v.modelo} ${v.anio}`,
+    auto_vin: v.vin,
+    auto_patente: v.patente || '—',
+    estado: contratoRaw.estado,
+    canon_mensual: contratoRaw.canon_mensual,
+    canon_moneda: contratoRaw.moneda,
+    plazo_meses: contratoRaw.plazo_meses,
+    fecha_inicio: contratoRaw.fecha_inicio,
+    fecha_fin: contratoRaw.fecha_fin,
+    valor_vehiculo: v.precio_usd,
+    opcion_compra: contratoRaw.opcion_compra,
+    lessor_nombre: 'Phenix Leasing',
+    ejecutivo: 'Tu ejecutivo',
+    ejecutivo_email: 'info@phenixleasing.com',
+    ejecutivo_telefono: '+54 11 5555-0000',
+    escrow: contratoRaw.tipo === 'escrow_blockchain' && contratoRaw.lease_id_onchain ? {
+      activo: true,
+      contrato_address: contratoRaw.contrato_address_onchain,
+      token: contratoRaw.escrow_token,
+      total: parseFloat(contratoRaw.escrow_monto) || 0,
+      liberado: parseFloat(contratoRaw.escrow_liberado) || 0,
+      bloqueado: parseFloat(contratoRaw.escrow_bloqueado) || 0,
+      lease_id: contratoRaw.lease_id_onchain
+    } : { activo: false }
+  };
+
+  const cuotas = (cuotasRaw || []).map(c => ({
+    numero: c.numero,
+    fecha_vencimiento: c.fecha_vencimiento,
+    monto: c.monto,
+    estado: c.estado,
+    fecha_pago: c.fecha_pago,
+    adicionales: (c.adicionales_cuota || []).map(a => ({ concepto: a.concepto, monto: a.monto }))
+  }));
+
+  const condiciones = (condicionesRaw || []).map(c => ({
+    index: c.index_onchain,
+    descripcion: c.descripcion,
+    porcentaje: c.porcentaje_bps / 100,
+    estado: c.estado,
+    fecha: c.fecha_cumplimiento,
+    monto: c.monto_liberado || 0
+  }));
+
+  return { contrato, cuotas, condiciones };
+}
+
+// ══════════════════════════════════════════════════════════════════
+// LOAD APP
+// ══════════════════════════════════════════════════════════════════
+let allCuotas = [];
+
+function loadApp(data) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+
+  if (!data || !data.contrato) {
+    document.getElementById('no-contrato').style.display = 'block';
+    return;
+  }
+
+  const { contrato, cuotas, condiciones } = data;
+
+  // User chip
+  const nombre = contrato.cliente_nombre || userEmail;
+  document.getElementById('user-avatar').textContent = nombre.charAt(0).toUpperCase();
+  document.getElementById('user-name-display').textContent = nombre.split(' ')[0];
+
+  // Hero
+  document.getElementById('contrato-hero').style.display = 'block';
+  document.getElementById('main-tabs-card').style.display = 'block';
+  document.getElementById('hero-auto').textContent = contrato.auto_descripcion;
+  document.getElementById('hero-vin').textContent = `VIN: ${contrato.auto_vin}`;
+
+  const statusMap = {
+    activo: ['ACTIVO', 'badge-green'],
+    pendiente: ['PENDIENTE', 'badge-yellow'],
+    completado: ['COMPLETADO', 'badge-blue'],
+    cancelado: ['CANCELADO', 'badge-gray'],
+    en_disputa: ['EN DISPUTA', 'badge-red'],
+  };
+  const [statusText, statusClass] = statusMap[contrato.estado] || ['—', 'badge-gray'];
+  document.getElementById('hero-status').innerHTML = `<div class="badge ${statusClass}"><div class="dot"></div>${statusText}</div>`;
+
+  // Stats
+  const pagas = cuotas.filter(c => c.estado === 'paga').length;
+  const proxima = cuotas.find(c => c.estado === 'pendiente');
+  document.getElementById('hero-canon').textContent = formatARS(contrato.canon_mensual);
+  document.getElementById('hero-canon-sub').textContent = contrato.canon_moneda || 'ARS';
+  document.getElementById('hero-cuotas').textContent = `${pagas}/${contrato.plazo_meses}`;
+  document.getElementById('hero-cuotas-sub').textContent = `${contrato.plazo_meses - pagas} restantes`;
+
+  if (proxima) {
+    const dias = diasHasta(proxima.fecha_vencimiento);
+    document.getElementById('hero-vencimiento').textContent = formatFecha(proxima.fecha_vencimiento);
+    document.getElementById('hero-vencimiento-sub').textContent = dias === 0 ? 'Hoy' : dias > 0 ? `en ${dias} días` : `hace ${Math.abs(dias)} días`;
+  } else {
+    document.getElementById('hero-vencimiento').textContent = '—';
+  }
+
+  // Escrow
+  const esc = contrato.escrow;
+  if (esc && esc.activo) {
+    window._escrowData = esc;
+    document.getElementById('escrow-card').style.display = 'block';
+    const pct = esc.total > 0 ? ((esc.liberado / esc.total) * 100).toFixed(0) : 0;
+    document.getElementById('hero-escrow').textContent = `${pct}%`;
+    document.getElementById('hero-escrow-sub').textContent = 'liberado';
+    document.getElementById('escrow-total').textContent = `${esc.total.toLocaleString()} ${esc.token}`;
+    document.getElementById('escrow-token').textContent = esc.token;
+    document.getElementById('escrow-libre').textContent = `${esc.liberado.toLocaleString()} ${esc.token}`;
+    document.getElementById('escrow-libre-pct').textContent = `${pct}% liberado`;
+    document.getElementById('escrow-bloq').textContent = `${esc.bloqueado.toLocaleString()} ${esc.token}`;
+    document.getElementById('escrow-bloq-pct').textContent = `${(100-parseInt(pct))}% bloqueado`;
+    document.getElementById('escrow-pct-label').textContent = `${pct}%`;
+    document.getElementById('escrow-address').textContent = esc.contrato_address;
+    document.getElementById('escrow-address').dataset.address = esc.contrato_address;
+    const bsLink = document.getElementById('basescan-link');
+    if (bsLink) bsLink.href = `https://basescan.org/address/${esc.contrato_address}`;
+    setTimeout(() => { document.getElementById('escrow-progress').style.width = pct + '%'; }, 300);
+  } else {
+    document.getElementById('no-escrow-card').style.display = 'block';
+    document.getElementById('deposit-banner').style.display = 'flex';
+    document.getElementById('hero-escrow').textContent = '—';
+    document.getElementById('hero-escrow-sub').textContent = 'sin activar';
+    window._escrowData = { lease_id: 2, total: 10, token: 'USDC', contrato_address: '0xD83e4b9C46f9038506572E9Caf09AD14E27e49cD' };
+  }
+
+  // Cuotas
+  allCuotas = cuotas;
+  renderCuotas(cuotas);
+
+  // Condiciones
+  renderCondiciones(condiciones, esc);
+
+  // Info
+  renderInfo(contrato);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CUOTAS
+// ══════════════════════════════════════════════════════════════════
+function renderCuotas(cuotas) {
+  const tbody = document.getElementById('cuotas-tbody');
+  if (!cuotas || cuotas.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">No hay cuotas registradas.</div></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = cuotas.map(c => {
+    const estadoBadge = {
+      paga:      `<div class="badge badge-green"><div class="dot"></div>Paga</div>`,
+      pendiente: `<div class="badge badge-yellow"><div class="dot"></div>Pendiente</div>`,
+      vencida:   `<div class="badge badge-red"><div class="dot"></div>Vencida</div>`,
+    }[c.estado] || `<div class="badge badge-gray">${c.estado}</div>`;
+
+    const adicionales = c.adicionales && c.adicionales.length > 0
+      ? `<div class="adicionales-list">${c.adicionales.map(a => `<div class="adicional-item"><div class="adicional-dot"></div>${a.concepto}: ${formatARS(a.monto)}</div>`).join('')}</div>`
+      : `<span style="color:var(--text3);font-size:12px">—</span>`;
+
+    return `<tr>
+      <td><span class="cuota-num">${String(c.numero).padStart(2,'0')}</span></td>
+      <td><span class="fecha-pago">${formatFecha(c.fecha_vencimiento)}</span></td>
+      <td><span class="cuota-monto">${formatARS(c.monto)}</span></td>
+      <td>${adicionales}</td>
+      <td><span class="fecha-pago" style="color:${c.fecha_pago ? 'var(--green)' : 'var(--text3)'}">${c.fecha_pago ? formatFecha(c.fecha_pago) : '—'}</span></td>
+      <td>${estadoBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+let currentFilter = 'todas';
+function filterCuotas(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const filtered = filter === 'todas' ? allCuotas : allCuotas.filter(c => c.estado === filter);
+  renderCuotas(filtered);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CONDICIONES
+// ══════════════════════════════════════════════════════════════════
+function renderCondiciones(condiciones, escrow) {
+  const container = document.getElementById('condiciones-list');
+  if (!condiciones || condiciones.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🔒</div><div class="empty-state-text">No hay condiciones registradas para este contrato.</div></div>`;
+    return;
+  }
+
+  const token = escrow?.token || 'USDC';
+  const total = escrow?.total || 0;
+
+  container.innerHTML = `<div class="condiciones-grid">` +
+    condiciones.map(c => {
+      const done = c.estado === 'cumplida';
+      const monto = total > 0 ? ((c.porcentaje / 100) * total).toFixed(2) : c.monto?.toFixed(2) || '—';
+      return `<div class="condicion-row ${done ? 'done' : 'pending'}">
+        <span class="condicion-idx">${String(c.index).padStart(2,'0')}</span>
+        <span class="condicion-icon">${done ? '✅' : '⏳'}</span>
+        <div class="condicion-info">
+          <div class="condicion-desc">${c.descripcion}</div>
+          <div class="condicion-meta">${c.porcentaje}% del escrow · ${done ? 'Liberado el ' + formatFecha(c.fecha) : 'Pendiente'}</div>
+        </div>
+        <div class="condicion-monto ${done ? 'done' : 'pending'}">${monto} ${token}</div>
+      </div>`;
+    }).join('') +
+  `</div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// INFO DEL CONTRATO
+// ══════════════════════════════════════════════════════════════════
+function renderInfo(contrato) {
+  document.getElementById('info-grid').innerHTML = [
+    ['N° de expediente', contrato.id],
+    ['Estado', contrato.estado?.toUpperCase()],
+    ['Vehículo', contrato.auto_descripcion],
+    ['VIN', contrato.auto_vin],
+    ['Patente', contrato.auto_patente || '—'],
+    ['Dador (lessor)', contrato.lessor_nombre],
+    ['CUIT del dador', contrato.lessor_cuit || '—'],
+    ['Ejecutivo', contrato.ejecutivo || '—'],
+    ['Email ejecutivo', contrato.ejecutivo_email || '—'],
+    ['Teléfono ejecutivo', contrato.ejecutivo_telefono || '—'],
+    ['Canon mensual', formatARS(contrato.canon_mensual) + ' ' + (contrato.canon_moneda || 'ARS')],
+    ['Plazo', contrato.plazo_meses + ' meses'],
+    ['Fecha de inicio', formatFecha(contrato.fecha_inicio)],
+    ['Fecha de fin', formatFecha(contrato.fecha_fin)],
+    ['Valor del vehículo', formatARS(contrato.valor_vehiculo) + ' ARS'],
+    ['Opción de compra', formatARS(contrato.opcion_compra) + ' ARS'],
+  ].map(([k, v]) => `<div class="info-item"><div class="info-key">${k}</div><div class="info-val">${v || '—'}</div></div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════════════════════════
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', ['cuotas','condiciones','info'][i] === tab);
+  });
+  document.querySelectorAll('.tab-panel').forEach((p, i) => {
+    p.classList.toggle('active', ['tab-cuotas','tab-condiciones','tab-info'][i] === 'tab-' + tab);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// UTILIDADES
+// ══════════════════════════════════════════════════════════════════
+function formatARS(n) {
+  if (!n && n !== 0) return '—';
+  return '$ ' + Number(n).toLocaleString('es-AR');
+}
+
+function formatFecha(str) {
+  if (!str) return '—';
+  const [y, m, d] = str.split('-');
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  return `${d} ${meses[parseInt(m)-1]} ${y}`;
+}
+
+function diasHasta(str) {
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const fecha = new Date(str + 'T00:00:00');
+  return Math.round((fecha - hoy) / 86400000);
+}
+
+function setLoading(btnId, textId, spinnerId, loading) {
+  document.getElementById(btnId).disabled = loading;
+  document.getElementById(textId).style.display = loading ? 'none' : 'inline';
+  document.getElementById(spinnerId).style.display = loading ? 'inline-block' : 'none';
+}
+
+function showMsg(elId, msg, type) {
+  const el = document.getElementById(elId);
+  el.innerHTML = `<div class="${type === 'error' ? 'login-error' : 'login-success'}">${msg}</div>`;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function copyAddress() {
+  const addr = document.getElementById('escrow-address').dataset.address || document.getElementById('escrow-address').textContent;
+  navigator.clipboard.writeText(addr).then(() => showToast('Dirección copiada ✓'));
+}
+
+function openBasescan() {
+  const addr = document.getElementById('escrow-address').dataset.address;
+  if (addr && addr !== '—') window.open(`https://basescan.org/address/${addr}`, '_blank');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// DEPOSIT MODAL
+// ══════════════════════════════════════════════════════════════════
+const CONTRACT_ADDRESS = '0xD83e4b9C46f9038506572E9Caf09AD14E27e49cD';
+const BASE_CHAIN_ID = 8453;
+const BASE_CHAIN_ID_HEX = '0x2105';
+
+const DEPOSIT_ABI = [
+  { inputs: [{ name: "leaseId", type: "uint256" }], name: "depositFunds", outputs: [], stateMutability: "payable", type: "function" },
+  { inputs: [{ name: "leaseId", type: "uint256" }], name: "getLease", outputs: [{ components: [{ name: "lessor", type: "address" }, { name: "lessee", type: "address" }, { name: "arbitrator", type: "address" }, { name: "token", type: "address" }, { name: "depositAmount", type: "uint256" }, { name: "releasedAmount", type: "uint256" }, { name: "lockedAmount", type: "uint256" }, { name: "leaseDuration", type: "uint256" }, { name: "startTimestamp", type: "uint256" }, { name: "endTimestamp", type: "uint256" }, { name: "status", type: "uint8" }, { name: "carVIN", type: "string" }, { name: "carDescription", type: "string" }], type: "tuple" }], stateMutability: "view", type: "function" },
+];
+
+const ERC20_ABI = [
+  { inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], name: "approve", outputs: [{ name: "", type: "bool" }], stateMutability: "nonpayable", type: "function" },
+  { inputs: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }], name: "allowance", outputs: [{ name: "", type: "uint256" }], stateMutability: "view", type: "function" },
+];
+
+const TOKENS = {
+  '0x0000000000000000000000000000000000000000': { symbol: 'ETH',   decimals: 18 },
+  '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': { symbol: 'USDC',  decimals: 6  },
+  '0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf': { symbol: 'cbBTC', decimals: 8  },
+};
+
+let depositState = { step: 'connect', wallet: null, leaseId: null, leaseData: null, needsApprove: false };
+
+function openDepositModal() {
+  const modal = document.getElementById('deposit-modal');
+  modal.classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  // Pull lease data from loaded contrato
+  const esc = window._escrowData;
+  if (esc) {
+    document.getElementById('modal-lease-id').textContent = esc.lease_id || '—';
+    document.getElementById('modal-monto').textContent = `${esc.total} ${esc.token}`;
+    document.getElementById('modal-token').textContent = esc.token;
+    depositState.leaseId = esc.lease_id;
+  }
+  resetDepositSteps();
+}
+
+function closeDepositModal() {
+  document.getElementById('deposit-modal').classList.remove('show');
+  document.body.style.overflow = '';
+  document.getElementById('deposit-msg').innerHTML = '';
+}
+
+function resetDepositSteps() {
+  depositState.step = 'connect';
+  setStepState('step-connect', 'idle');
+  setStepState('step-approve', 'idle');
+  setStepState('step-deposit', 'idle');
+  document.getElementById('deposit-action-text').textContent = 'Conectar wallet';
+  document.getElementById('btn-deposit-action').className = 'deposit-btn';
+  document.getElementById('btn-deposit-action').disabled = false;
+  document.getElementById('deposit-spinner').style.display = 'none';
+}
+
+function setStepState(stepId, state) {
+  const el = document.getElementById(stepId);
+  const icon = document.getElementById(stepId + '-icon');
+  el.className = 'wallet-step';
+  if (state === 'active')  { el.classList.add('active'); icon.textContent = '⟳'; }
+  if (state === 'done')    { el.classList.add('done');   icon.textContent = '✓'; }
+  if (state === 'error')   { el.classList.add('error-step'); icon.textContent = '✗'; }
+  if (state === 'idle')    { icon.textContent = '○'; }
+}
+
+function setDepositLoading(loading, text) {
+  document.getElementById('btn-deposit-action').disabled = loading;
+  document.getElementById('deposit-action-text').textContent = text;
+  document.getElementById('deposit-spinner').style.display = loading ? 'inline-block' : 'none';
+}
+
+function showDepositMsg(msg, type) {
+  document.getElementById('deposit-msg').innerHTML = `<div class="${type === 'error' ? 'login-error' : 'login-success'}">${msg}</div>`;
+}
+
+async function handleDepositAction() {
+  document.getElementById('deposit-msg').innerHTML = '';
+  if (depositState.step === 'connect')  await connectDepositWallet();
+  else if (depositState.step === 'approve') await approveToken();
+  else if (depositState.step === 'deposit') await executeDeposit();
+}
+
+async function connectDepositWallet() {
+  if (!window.ethereum) {
+    showDepositMsg('No se detectó ninguna wallet. Instalá MetaMask.', 'error');
+    return;
+  }
+  setDepositLoading(true, 'Conectando...');
+  setStepState('step-connect', 'active');
+  try {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send('eth_requestAccounts', []);
+
+    // Check network
+    const network = await provider.getNetwork();
+    if (Number(network.chainId) !== BASE_CHAIN_ID) {
+      try {
+        await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_CHAIN_ID_HEX }] });
+      } catch(e) {
+        if (e.code === 4902) {
+          await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [{ chainId: BASE_CHAIN_ID_HEX, chainName: 'Base', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://mainnet.base.org'], blockExplorerUrls: ['https://basescan.org'] }] });
+        } else throw e;
+      }
+    }
+
+    const signer = await provider.getSigner();
+    const address = await signer.getAddress();
+    depositState.wallet = address;
+
+    // Check if ERC-20 needs approval
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, DEPOSIT_ABI, provider);
+    const lease = await contract.getLease(depositState.leaseId || 1);
+    depositState.leaseData = lease;
+
+    const tokenAddr = lease.token.toLowerCase();
+    const isETH = tokenAddr === '0x0000000000000000000000000000000000000000';
+
+    setStepState('step-connect', 'done');
+    document.getElementById('step-connect-desc').textContent = address.slice(0,6) + '…' + address.slice(-4) + ' · Base';
+
+    if (!isETH) {
+      // Need approve step
+      document.getElementById('step-approve').style.display = 'flex';
+      document.getElementById('step-deposit-num').textContent = '3';
+      const tokenContract = new ethers.Contract(lease.token, ERC20_ABI, provider);
+      const allowance = await tokenContract.allowance(address, CONTRACT_ADDRESS);
+      if (allowance < lease.depositAmount) {
+        depositState.needsApprove = true;
+        depositState.step = 'approve';
+        setDepositLoading(false, 'Aprobar token');
+        setStepState('step-approve', 'active');
+        return;
+      }
+    }
+
+    depositState.step = 'deposit';
+    setStepState('step-deposit', 'active');
+    setDepositLoading(false, 'Firmar depósito');
+  } catch(e) {
+    setStepState('step-connect', 'error');
+    setDepositLoading(false, 'Conectar wallet');
+    if (e.code === 4001 || e.code === 'ACTION_REJECTED') showDepositMsg('Conexión rechazada.', 'error');
+    else showDepositMsg(e.message || 'Error al conectar.', 'error');
+  }
+}
+
+async function approveToken() {
+  setDepositLoading(true, 'Aprobando...');
+  setStepState('step-approve', 'active');
+  try {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const lease = depositState.leaseData;
+    const tokenContract = new ethers.Contract(lease.token, ERC20_ABI, signer);
+    const tx = await tokenContract.approve(CONTRACT_ADDRESS, lease.depositAmount);
+    await tx.wait();
+    setStepState('step-approve', 'done');
+    depositState.step = 'deposit';
+    setStepState('step-deposit', 'active');
+    setDepositLoading(false, 'Firmar depósito');
+  } catch(e) {
+    setStepState('step-approve', 'error');
+    setDepositLoading(false, 'Aprobar token');
+    if (e.code === 4001 || e.code === 'ACTION_REJECTED') showDepositMsg('Aprobación rechazada.', 'error');
+    else showDepositMsg(e.message || 'Error al aprobar.', 'error');
+  }
+}
+
+async function executeDeposit() {
+  setDepositLoading(true, 'Firmando...');
+  setStepState('step-deposit', 'active');
+  try {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, DEPOSIT_ABI, signer);
+    const lease = depositState.leaseData;
+    const isETH = lease.token.toLowerCase() === '0x0000000000000000000000000000000000000000';
+    const tx = await contract.depositFunds(
+      depositState.leaseId || 1,
+      isETH ? { value: lease.depositAmount } : {}
+    );
+    setDepositLoading(true, 'Confirmando en blockchain...');
+    await tx.wait();
+    setStepState('step-deposit', 'done');
+
+    // Success state
+    document.getElementById('btn-deposit-action').className = 'deposit-btn success';
+    setDepositLoading(false, '✓ Depósito confirmado');
+    showDepositMsg(`Fondos depositados. TX: <a href="https://basescan.org/tx/${tx.hash}" target="_blank" style="color:var(--green);font-family:var(--mono);font-size:11px">${tx.hash.slice(0,20)}…</a>`, 'success');
+    setTimeout(() => { closeDepositModal(); showToast('✓ Escrow activado correctamente'); }, 3000);
+  } catch(e) {
+    setStepState('step-deposit', 'error');
+    setDepositLoading(false, 'Firmar depósito');
+    if (e.code === 4001 || e.code === 'ACTION_REJECTED') showDepositMsg('Transacción rechazada.', 'error');
+    else showDepositMsg(e.reason || e.message || 'Error al depositar.', 'error');
+  }
+}
+
+// ── Detectar magic link en la URL ────────────────────────────────
+async function handleMagicLink() {
+  if (!sbClient) return;
+  const hash = window.location.hash;
+  if (!hash.includes('access_token')) return;
+
+  try {
+    const { data: { session }, error } = await sbClient.auth.getSession();
+    if (error || !session) return;
+
+    const email = session.user.email;
+    userEmail = email;
+
+    // Limpiar el hash de la URL
+    window.history.replaceState(null, '', window.location.pathname);
+
+    // Cargar datos del contrato
+    const appData = await fetchContratoData(email);
+    loadApp(appData || { contrato: null, cuotas: [], condiciones: [] });
+  } catch(e) {
+    console.error('Error al procesar magic link:', e);
+  }
+}
+
+// Ejecutar al cargar la página
+handleMagicLink();
+
+// Enter en email input
+document.getElementById('email-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') sendOTP();
+});
+
+// Pegar código OTP completo
+document.querySelectorAll('.otp-input').forEach((input, idx) => {
+  input.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g,'').slice(0,6);
+    document.querySelectorAll('.otp-input').forEach((inp, i) => { inp.value = text[i] || ''; });
+    if (text.length === 6) verifyOTP();
+  });
+});
+</script>
+</body>
+</html>
