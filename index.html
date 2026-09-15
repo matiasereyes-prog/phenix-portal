@@ -1094,6 +1094,14 @@ async function sendOTP() {
     showMsg('email-msg', 'Ingresá un email válido.', 'error');
     return;
   }
+  // Verificar si el email está registrado en el sistema
+  if (sbClient) {
+    const { data: usuario } = await sbClient.from('usuarios').select('id').eq('email', email).single();
+    if (!usuario) {
+      showMsg('email-msg', '⚠️ Ese email no está registrado. Contactá a tu ejecutivo de ventas.', 'error');
+      return;
+    }
+  }
   userEmail = email;
   setLoading('btn-send-otp', 'btn-send-text', 'spinner-send', true);
 
