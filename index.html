@@ -1758,10 +1758,11 @@ async function handleMagicLink() {
       .eq('email', email)
       .maybeSingle();
 
-    // Si es admin o ejecutivo, redirigir al backend
+    // Si es admin o ejecutivo, redirigir al backend con el token
     // Si usuario es null (RLS bloqueó) asumimos lessee y continuamos
     if (usuario?.rol && ['admin', 'ejecutivo'].includes(usuario.rol)) {
-      window.location.href = 'https://app.phenixleasing.com';
+      // Pasar el hash con el token al backend para que no pida login de nuevo
+      window.location.href = 'https://app.phenixleasing.com' + window.location.hash;
       return;
     }
 
