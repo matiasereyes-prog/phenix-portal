@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>AutoLease · Mi Contrato</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
@@ -894,8 +895,10 @@ body {
       <div style="padding:20px 24px 0">
         <div class="tabs">
           <button class="tab active" onclick="switchTab('cuotas')">Cuotas</button>
-          <button class="tab" onclick="switchTab('condiciones')">Condiciones escrow</button>
-          <button class="tab" onclick="switchTab('info')">Datos del contrato</button>
+          <button class="tab" onclick="switchTab('liquidacion')">Liquidación</button>
+          <button class="tab" onclick="switchTab('condiciones')">Escrow</button>
+          <button class="tab" onclick="switchTab('documentos')">Documentos</button>
+          <button class="tab" onclick="switchTab('info')">Mi contrato</button>
         </div>
       </div>
 
@@ -1471,6 +1474,8 @@ function renderInfo(contrato) {
 // TABS
 // ══════════════════════════════════════════════════════════════════
 function switchTab(tab) {
+  if (tab === 'liquidacion') loadLiquidacionPortal();
+  if (tab === 'documentos') loadDocumentosPortal();
   document.querySelectorAll('.tab').forEach((t, i) => {
     t.classList.toggle('active', ['cuotas','condiciones','info'][i] === tab);
   });
@@ -1754,7 +1759,8 @@ async function handleMagicLink() {
       .maybeSingle();
 
     // Si es admin o ejecutivo, redirigir al backend
-    if (usuario && ['admin', 'ejecutivo'].includes(usuario.rol)) {
+    // Si usuario es null (RLS bloqueó) asumimos lessee y continuamos
+    if (usuario?.rol && ['admin', 'ejecutivo'].includes(usuario.rol)) {
       window.location.href = 'https://app.phenixleasing.com';
       return;
     }
@@ -1775,6 +1781,148 @@ async function handleMagicLink() {
 // Ejecutar al cargar la página
 handleMagicLink();
 
+// ══════════════════════════════════════════════════════════════════
+// LIQUIDACION
+// ══════════════════════════════════════════════════════════════════
+async function loadLiquidacionPortal() {
+  if (!sbClient || !userEmail) return;
+  const { data: usuario } = await sbClient.from('usuarios').select('id').eq('email', userEmail).maybeSingle();
+  if (!usuario) return;
+  const { data: contrato } = await sbClient.from('contratos').select('id').eq('usuario_id', usuario.id).maybeSingle();
+  if (!contrato) return;
+  const { data: cuotas } = await sbClient.from('cuotas').select('*').eq('contrato_id', contrato.id).order('numero', { ascending: true });
+
+  const tbody = document.getElementById('tbody-liq-portal');
+  if (!cuotas || !cuotas.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text3)">Sin cuotas registradas</td></tr>';
+    return;
+  }
+
+  const estadoColors = { paga: 'badge-green', pendiente: 'badge-gray', vencida: 'badge-red' };
+  let html = '';
+  cuotas.forEach(c => {
+    const isVencida = c.estado === 'vencida';
+    html += '<tr style="' + (isVencida ? 'background:var(--red-bg)' : '') + '">';
+    html += '<td class="cuota-num">' + String(c.numero).padStart(2,'0') + '</td>';
+    html += '<td class="fecha-pago">' + (c.fecha_vencimiento ? formatDatePortal(c.fecha_vencimiento) : '—') + '</td>';
+    html += '<td class="cuota-monto">' + (c.monto ? window._contratoData?.contrato?.canon_moneda + ' ' + Number(c.monto).toLocaleString('es-AR') : '—') + '</td>';
+    html += '<td style="font-family:var(--mono);font-size:12px;color:var(--blue)">' + (c.capital ? Number(c.capital).toLocaleString('es-AR') : '—') + '</td>';
+    html += '<td style="font-family:var(--mono);font-size:12px;color:var(--orange)">' + (c.interes ? Number(c.interes).toLocaleString('es-AR') : '—') + '</td>';
+    html += '<td style="font-family:var(--mono);font-size:12px">' + (c.saldo_restante ? Number(c.saldo_restante).toLocaleString('es-AR') : '—') + '</td>';
+    html += '<td><div class="badge ' + (estadoColors[c.estado] || 'badge-gray') + '"><div class="dot"></div>' + c.estado + '</div></td>';
+    html += '</tr>';
+    if (c.estado === 'paga' && c.fecha_pago) {
+      html += '<tr style="background:var(--green-bg)"><td colspan="7" style="font-size:11px;color:var(--green);padding:4px 12px">✓ Pagada el ' + formatDatePortal(c.fecha_pago) + (c.medio_pago ? ' · ' + c.medio_pago : '') + '</td></tr>';
+    }
+  });
+  tbody.innerHTML = html;
+}
+
+function formatDatePortal(str) {
+  if (!str) return '—';
+  const [y,m,d] = str.split('-');
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  return d + ' ' + meses[parseInt(m)-1] + ' ' + y;
+}
+
+async function exportarLiquidacionPortal() {
+  if (!sbClient || !userEmail) return;
+  const { data: usuario } = await sbClient.from('usuarios').select('id').eq('email', userEmail).maybeSingle();
+  if (!usuario) return;
+  const { data: contrato } = await sbClient.from('contratos').select('id,moneda').eq('usuario_id', usuario.id).maybeSingle();
+  if (!contrato) return;
+  const { data: cuotas } = await sbClient.from('cuotas').select('*').eq('contrato_id', contrato.id).order('numero', { ascending: true });
+
+  const data = (cuotas||[]).map(c => ({
+    'N° Cuota': c.numero,
+    'Vencimiento': c.fecha_vencimiento || '—',
+    ['Cuota (' + contrato.moneda + ')']: c.monto,
+    'Capital': c.capital || '—',
+    'Interés': c.interes || '—',
+    'Saldo restante': c.saldo_restante || '—',
+    'Estado': c.estado,
+    'Fecha pago': c.fecha_pago || '—',
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Liquidacion');
+  XLSX.writeFile(wb, 'mi_liquidacion_' + new Date().toISOString().split('T')[0] + '.xlsx');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DOCUMENTOS
+// ══════════════════════════════════════════════════════════════════
+async function loadDocumentosPortal() {
+  if (!sbClient || !userEmail) return;
+  const { data: usuario } = await sbClient.from('usuarios').select('id').eq('email', userEmail).maybeSingle();
+  if (!usuario) return;
+  const { data: docs } = await sbClient.from('documentos').select('*').eq('usuario_id', usuario.id).order('created_at', { ascending: false });
+
+  const container = document.getElementById('lista-documentos');
+  if (!docs || !docs.length) {
+    container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Sin documentos subidos aún</div>';
+    return;
+  }
+
+  const tipoLabels = { dni:'DNI', recibo_sueldo:'Recibo de sueldo', afip:'Constancia AFIP', estatuto:'Estatuto/Poder', balance:'Balance', seguro:'Póliza de seguro', otro:'Otro' };
+  const estadoColors = { pendiente:'badge-yellow', aprobado:'badge-green', rechazado:'badge-red' };
+
+  container.innerHTML = docs.map(d => {
+    const nombre = d.url_storage ? d.url_storage.split('/').pop() : 'documento';
+    return '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;border:1.5px solid var(--border);margin-bottom:8px;background:var(--surface2)">' +
+      '<span style="font-size:20px">📄</span>' +
+      '<div style="flex:1">' +
+        '<div style="font-size:13px;font-weight:600;color:var(--text)">' + (tipoLabels[d.tipo] || d.tipo) + '</div>' +
+        '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + formatDatePortal(d.created_at?.split('T')[0]) + (d.observacion ? ' · ' + d.observacion : '') + '</div>' +
+      '</div>' +
+      '<div class="badge ' + (estadoColors[d.estado] || 'badge-gray') + '">' + d.estado + '</div>' +
+      (d.url_storage ? '<a href="' + d.url_storage + '" target="_blank" style="font-size:12px;color:var(--blue);font-weight:600;text-decoration:none">Ver ↗</a>' : '') +
+    '</div>';
+  }).join('');
+}
+
+async function subirDocumento(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) {
+    document.getElementById('upload-msg').innerHTML = '<div style="background:var(--red-bg);border:1px solid #fecaca;border-radius:8px;padding:10px 14px;color:var(--red);font-size:13px">El archivo supera los 10MB.</div>';
+    return;
+  }
+
+  const tipo = document.getElementById('tipo-documento').value;
+  const msgEl = document.getElementById('upload-msg');
+  msgEl.innerHTML = '<div style="background:var(--yellow-bg);border:1px solid #fde68a;border-radius:8px;padding:10px 14px;color:#92400e;font-size:13px">Subiendo documento...</div>';
+
+  try {
+    const { data: usuario } = await sbClient.from('usuarios').select('id').eq('email', userEmail).maybeSingle();
+    if (!usuario) throw new Error('Usuario no encontrado');
+
+    // Upload to Supabase Storage
+    const ext = file.name.split('.').pop();
+    const path = usuario.id + '/' + tipo + '_' + Date.now() + '.' + ext;
+    const { data: uploaded, error: uploadError } = await sbClient.storage.from('documentos').upload(path, file);
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = sbClient.storage.from('documentos').getPublicUrl(path);
+
+    // Save to documentos table
+    const { error: dbError } = await sbClient.from('documentos').insert({
+      usuario_id: usuario.id,
+      tipo,
+      url_storage: publicUrl,
+      estado: 'pendiente'
+    });
+    if (dbError) throw dbError;
+
+    msgEl.innerHTML = '<div style="background:var(--green-bg);border:1px solid #a7f3d0;border-radius:8px;padding:10px 14px;color:var(--green);font-size:13px">✓ Documento subido correctamente. Será revisado por tu ejecutivo.</div>';
+    input.value = '';
+    loadDocumentosPortal();
+  } catch(e) {
+    msgEl.innerHTML = '<div style="background:var(--red-bg);border:1px solid #fecaca;border-radius:8px;padding:10px 14px;color:var(--red);font-size:13px">Error: ' + (e.message || 'No se pudo subir el archivo.') + '</div>';
+  }
+}
+
 // Enter en email input
 document.getElementById('email-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') sendOTP();
@@ -1792,3 +1940,68 @@ document.querySelectorAll('.otp-input').forEach((input, idx) => {
 </script>
 </body>
 </html>
+      <!-- Tab: Liquidacion -->
+      <div class="tab-panel" id="tab-liquidacion">
+        <div style="padding:0 24px 8px;display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:13px;font-weight:600;color:var(--text2)">Cuadro de amortización</div>
+          <button onclick="exportarLiquidacionPortal()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2)">⬇ Excel</button>
+        </div>
+        <div style="overflow-x:auto;padding:0 24px 24px;max-height:480px;overflow-y:auto">
+          <table class="cuotas-table" id="table-liq-portal">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Vencimiento</th>
+                <th>Cuota</th>
+                <th>Capital</th>
+                <th>Interés</th>
+                <th>Saldo</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-liq-portal"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab: Documentos -->
+      <div class="tab-panel" id="tab-documentos">
+        <div style="padding:0 24px 24px">
+          <div style="margin-bottom:20px">
+            <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">Mis documentos</div>
+            <div style="font-size:13px;color:var(--text2)">Subí tu documentación para completar el legajo.</div>
+          </div>
+
+          <!-- Upload area -->
+          <div style="border:2px dashed var(--border2);border-radius:var(--radius);padding:28px;text-align:center;margin-bottom:20px;cursor:pointer;transition:all 0.2s" id="upload-area" onclick="document.getElementById('file-input').click()" onmouseover="this.style.borderColor='var(--text)'" onmouseout="this.style.borderColor='var(--border2)'">
+            <div style="font-size:28px;margin-bottom:8px">📎</div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px">Subir documento</div>
+            <div style="font-size:12px;color:var(--text3)">PDF, JPG, PNG — máx. 10MB</div>
+            <input type="file" id="file-input" style="display:none" accept=".pdf,.jpg,.jpeg,.png" onchange="subirDocumento(this)"/>
+          </div>
+
+          <!-- Tipo de documento -->
+          <div style="margin-bottom:16px">
+            <label style="display:block;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Tipo de documento</label>
+            <select id="tipo-documento" style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:11px 14px;font-family:var(--sans);font-size:14px;color:var(--text);outline:none">
+              <option value="dni">DNI</option>
+              <option value="recibo_sueldo">Recibo de sueldo</option>
+              <option value="afip">Constancia AFIP</option>
+              <option value="estatuto">Estatuto / Poder</option>
+              <option value="balance">Balance</option>
+              <option value="seguro">Póliza de seguro</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+
+          <div id="upload-msg" style="margin-bottom:16px"></div>
+
+          <!-- Lista de documentos -->
+          <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">Documentos subidos</div>
+          <div id="lista-documentos">
+            <div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Sin documentos subidos aún</div>
+          </div>
+        </div>
+      </div>
+
+
