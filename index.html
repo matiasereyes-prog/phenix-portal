@@ -2556,7 +2556,11 @@ async function loadLiquidacionFSPortal() {
     html += '<td style="padding:10px 12px;font-family:monospace;font-size:12px;font-weight:800">' + mon + ' ' + fmt(total) + '</td>';
     html += '<td style="padding:10px 12px;font-family:monospace;font-size:12px">' + fmt(c.saldo_restante) + '</td>';
     html += '<td style="padding:10px 12px"><span style="background:' + (isPaga ? '#dcfce7' : '#f1f5f9') + ';color:' + (estadoColors[c.estado] || '#94a3b8') + ';border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">' + c.estado.toUpperCase() + '</span></td>';
-    html += '<td style="padding:10px 12px;font-size:12px;color:#22c55e">' + (isPaga && c.fecha_pago ? formatDatePortal(c.fecha_pago) : '—') + '</td>';
+    let pagoInfo = isPaga && c.fecha_pago ? formatDatePortal(c.fecha_pago) : '—';
+    if (isPaga && c.tx_hash && c.tx_hash.startsWith('http')) {
+      pagoInfo += ' <a href="' + c.tx_hash + '" target="_blank" style="color:#22c55e;font-weight:700;font-size:11px">📎 Comprobante ↗</a>';
+    }
+    html += '<td style="padding:10px 12px;font-size:12px;color:#22c55e">' + pagoInfo + '</td>';
     html += '</tr>';
   });
   tbody.innerHTML = html;
