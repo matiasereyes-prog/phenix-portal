@@ -1948,7 +1948,7 @@ async function loadLiquidacionPortal() {
     const adicion = parseFloat(c.adicionales_monto || 0);
     const total = c.total_con_adicionales || (cuotaBase + seguro + adicion);
     const isPaga = c.estado === 'paga';
-    html += '<tr style="' + (isPaga ? 'background:#f0fdf4' : '') + '">';
+    html += '<tr>';
     html += '<td class="cuota-num">' + String(c.numero).padStart(2,'0') + '</td>';
     html += '<td class="fecha-pago">' + (c.fecha_vencimiento ? formatDatePortal(c.fecha_vencimiento) : '—') + '</td>';
     html += '<td style="font-weight:700;font-family:monospace">' + mon + ' ' + fmt(c.monto) + '</td>';
@@ -1960,7 +1960,7 @@ async function loadLiquidacionPortal() {
     html += '<td><div class="badge ' + (estadoColors[c.estado] || 'badge-gray') + '"><div class="dot"></div>' + c.estado + '</div></td>';
     html += '</tr>';
     if (isPaga && c.fecha_pago) {
-      html += '<tr style="background:#f0fdf4"><td colspan="10" style="font-size:11px;color:#22c55e;padding:2px 12px 6px">✓ Pagada el ' + formatDatePortal(c.fecha_pago) + (c.medio_pago ? ' · ' + c.medio_pago : '') + '</td></tr>';
+      html += '<tr style="background:#f0fdf4"><td colspan="9" style="font-size:11px;color:#22c55e;padding:2px 12px 6px">✓ Pagada el ' + formatDatePortal(c.fecha_pago) + (c.medio_pago ? ' · ' + c.medio_pago : '') + '</td></tr>';
     }
   });
   tbody.innerHTML = html;
