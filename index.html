@@ -1679,6 +1679,7 @@ function switchTab(tab) {
   if (tab === 'liquidacion') loadLiquidacionPortal();
   if (tab === 'documentos') loadDocumentosPortal();
   if (tab === 'condiciones') loadEscrowOnchain();
+  if (tab === 'info') loadInfoContrato();
 
   document.querySelectorAll('.tab').forEach((b, i) => {
     b.classList.toggle('active', ['cuotas','liquidacion','condiciones','documentos','info'][i] === tab);
@@ -2466,6 +2467,49 @@ async function refreshEscrowOnchain() {
     document.getElementById('oc-total').textContent = 'Error';
     console.error('Error loading onchain data:', e);
   }
+}
+
+function loadInfoContrato() {
+  const d = window._contratoData;
+  if (!d || !d.contrato) return;
+  const c = d.contrato;
+  const container = document.getElementById('info-contrato-grid');
+  if (!container) return;
+
+  const fmt = n => n ? Number(n).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+
+  container.innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">' +
+      infoCard('🚗 Vehículo', c.auto_descripcion || '—') +
+      infoCard('📋 Contrato', 'N° ' + (c.id || '').slice(0,8).toUpperCase()) +
+      infoCard('💰 Canon mensual', (c.canon_moneda || 'USD') + ' ' + fmt(c.canon_mensual)) +
+      infoCard('📅 Plazo', (c.plazo_meses || '—') + ' meses') +
+      infoCard('📆 Inicio', c.fecha_inicio ? formatDatePortal(c.fecha_inicio) : '—') +
+      infoCard('📆 Fin', c.fecha_fin ? formatDatePortal(c.fecha_fin) : '—') +
+      infoCard('🔑 Opción de compra', (c.canon_moneda || 'USD') + ' ' + fmt(c.opcion_compra)) +
+      infoCard('💳 Moneda', c.canon_moneda || 'USD') +
+      infoCard('📍 Estado', c.estado || '—') +
+      infoCard('🔧 Tipo', c.tipo === 'escrow_blockchain' ? 'Escrow Blockchain' : 'Tradicional') +
+    '</div>' +
+    '<div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">' +
+      '<div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Vehículo</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
+        infoRow('Descripción', c.auto_descripcion || '—') +
+        infoRow('VIN', c.auto_vin || '—') +
+        infoRow('Patente', c.auto_patente || '—') +
+      '</div>' +
+    '</div>';
+}
+
+function infoCard(label, value) {
+  return '<div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:12px;padding:16px">' +
+    '<div style="font-size:12px;color:var(--text3);margin-bottom:6px">' + label + '</div>' +
+    '<div style="font-size:15px;font-weight:700;color:var(--text)">' + value + '</div>' +
+  '</div>';
+}
+
+function infoRow(label, value) {
+  return '<div><div style="font-size:11px;color:var(--text3)">' + label + '</div><div style="font-size:13px;font-weight:600;color:var(--text);font-family:monospace">' + value + '</div></div>';
 }
 
 function abrirLiquidacionFS() {
