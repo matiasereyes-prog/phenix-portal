@@ -1092,7 +1092,7 @@ body {
       <div style="font-size:17px;font-weight:700;color:var(--text)">Cuadro de amortización</div>
       <div style="display:flex;gap:8px">
         <button onclick="exportarLiquidacionPortal()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer">⬇ Excel</button>
-        <button onclick="closeModal('modal-liq-fs-portal')" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 14px;font-size:16px;cursor:pointer">✕</button>
+        <button onclick="document.getElementById('modal-liq-fs-portal').classList.remove('show');document.body.style.overflow=''" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 14px;font-size:16px;cursor:pointer">✕</button>
       </div>
     </div>
     <div style="overflow-x:auto">
