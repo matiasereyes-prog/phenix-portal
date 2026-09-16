@@ -920,10 +920,13 @@ body {
               <tr>
                 <th>#</th>
                 <th>Vencimiento</th>
-                <th>Monto</th>
-                <th>Adicionales</th>
-                <th>Fecha de pago</th>
+                <th>Cuota</th>
+                <th>Amortización</th>
+                <th>Interés</th>
+                <th>Seguro</th>
+                <th>Total</th>
                 <th>Estado</th>
+                <th>Fecha pago</th>
               </tr>
             </thead>
             <tbody id="cuotas-tbody">
@@ -946,9 +949,12 @@ body {
                 <th>#</th>
                 <th>Vencimiento</th>
                 <th>Cuota</th>
-                <th>Capital</th>
+                <th>Amortización</th>
                 <th>Interés</th>
-                <th>Saldo</th>
+                <th>IVA</th>
+                <th>Seguro</th>
+                <th>Total</th>
+                <th>Saldo restante</th>
                 <th>Estado</th>
               </tr>
             </thead>
@@ -1505,33 +1511,38 @@ function loadApp(data) {
 function renderCuotas(cuotas) {
   const tbody = document.getElementById('cuotas-tbody');
   if (!cuotas || cuotas.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">No hay cuotas registradas.</div></div></td></tr>`;
+    tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">No hay cuotas registradas.</div></div></td></tr>';
     return;
   }
 
-  tbody.innerHTML = cuotas.map(c => {
-    const estadoBadge = {
-      paga:      `<div class="badge badge-green"><div class="dot"></div>Paga</div>`,
-      pendiente: `<div class="badge badge-yellow"><div class="dot"></div>Pendiente</div>`,
-      vencida:   `<div class="badge badge-red"><div class="dot"></div>Vencida</div>`,
-    }[c.estado] || `<div class="badge badge-gray">${c.estado}</div>`;
+  const mon = window._contratoData?.contrato?.canon_moneda || 'USD';
+  const fmt = n => n ? Number(n).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+  const estadoMap = { paga: 'cuota-badge-paga', pendiente: 'cuota-badge-pendiente', vencida: 'cuota-badge-vencida' };
 
-    const adicionales = c.adicionales && c.adicionales.length > 0
-      ? `<div class="adicionales-list">${c.adicionales.map(a => `<div class="adicional-item"><div class="adicional-dot"></div>${a.concepto}: ${formatARS(a.monto)}</div>`).join('')}</div>`
-      : `<span style="color:var(--text3);font-size:12px">—</span>`;
+  let html = '';
+  cuotas.forEach(c => {
+    const isPaga = c.estado === 'paga';
+    const cuotaBase = parseFloat(c.monto || 0);
+    const seguro = parseFloat(c.seguro || 0);
+    const adicion = parseFloat(c.adicionales_monto || 0);
+    const total = c.total_con_adicionales || (cuotaBase + seguro + adicion);
 
-    return `<tr>
-      <td><span class="cuota-num">${String(c.numero).padStart(2,'0')}</span></td>
-      <td><span class="fecha-pago">${formatFecha(c.fecha_vencimiento)}</span></td>
-      <td><span class="cuota-monto">${formatARS(c.monto)}</span></td>
-      <td>${adicionales}</td>
-      <td><span class="fecha-pago" style="color:${c.fecha_pago ? 'var(--green)' : 'var(--text3)'}">${c.fecha_pago ? formatFecha(c.fecha_pago) : '—'}</span></td>
-      <td>${estadoBadge}</td>
-    </tr>`;
-  }).join('');
+    html += '<tr class="' + (isPaga ? 'cuota-paga' : '') + '">';
+    html += '<td class="cuota-num">' + String(c.numero).padStart(2,'0') + '</td>';
+    html += '<td class="fecha-pago">' + (c.fecha_vencimiento ? formatDatePortal(c.fecha_vencimiento) : '—') + '</td>';
+    html += '<td class="cuota-monto">' + mon + ' ' + fmt(c.monto) + '</td>';
+    html += '<td style="font-size:12px;color:#3b82f6;font-family:monospace">' + fmt(c.capital) + '</td>';
+    html += '<td style="font-size:12px;color:#f97316;font-family:monospace">' + fmt(c.interes) + '</td>';
+    html += '<td style="font-size:12px;color:#22c55e;font-family:monospace">' + fmt(c.seguro) + '</td>';
+    html += '<td style="font-size:12px;font-weight:800;font-family:monospace">' + mon + ' ' + fmt(total) + '</td>';
+    html += '<td><div class="' + (estadoMap[c.estado] || 'cuota-badge-pendiente') + '">' + c.estado + '</div></td>';
+    html += '<td class="fecha-pago">' + (isPaga && c.fecha_pago ? formatDatePortal(c.fecha_pago) : '—') + '</td>';
+    html += '</tr>';
+  });
+  tbody.innerHTML = html;
 }
 
-let currentFilter = 'todas';
+
 function filterCuotas(filter, btn) {
   currentFilter = filter;
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -1916,35 +1927,45 @@ async function loadLiquidacionPortal() {
   if (!sbClient || !userEmail) return;
   const { data: usuario } = await sbClient.from('usuarios').select('id').eq('email', userEmail).maybeSingle();
   if (!usuario) return;
-  const { data: contrato } = await sbClient.from('contratos').select('id').eq('usuario_id', usuario.id).maybeSingle();
+  const { data: contrato } = await sbClient.from('contratos').select('id,moneda').eq('usuario_id', usuario.id).maybeSingle();
   if (!contrato) return;
   const { data: cuotas } = await sbClient.from('cuotas').select('*').eq('contrato_id', contrato.id).order('numero', { ascending: true });
 
   const tbody = document.getElementById('tbody-liq-portal');
   if (!cuotas || !cuotas.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text3)">Sin cuotas registradas</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3)">Sin cuotas registradas</td></tr>';
     return;
   }
 
+  const mon = contrato.moneda || 'USD';
+  const fmt = n => n ? Number(n).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
   const estadoColors = { paga: 'badge-green', pendiente: 'badge-gray', vencida: 'badge-red' };
+
   let html = '';
   cuotas.forEach(c => {
-    const isVencida = c.estado === 'vencida';
-    html += '<tr style="' + (isVencida ? 'background:var(--red-bg)' : '') + '">';
+    const cuotaBase = parseFloat(c.monto || 0);
+    const seguro = parseFloat(c.seguro || 0);
+    const adicion = parseFloat(c.adicionales_monto || 0);
+    const total = c.total_con_adicionales || (cuotaBase + seguro + adicion);
+    const isPaga = c.estado === 'paga';
+    html += '<tr style="' + (isPaga ? 'background:#f0fdf4' : '') + '">';
     html += '<td class="cuota-num">' + String(c.numero).padStart(2,'0') + '</td>';
     html += '<td class="fecha-pago">' + (c.fecha_vencimiento ? formatDatePortal(c.fecha_vencimiento) : '—') + '</td>';
-    html += '<td class="cuota-monto">' + (c.monto ? window._contratoData?.contrato?.canon_moneda + ' ' + Number(c.monto).toLocaleString('es-AR') : '—') + '</td>';
-    html += '<td style="font-family:var(--mono);font-size:12px;color:var(--blue)">' + (c.capital ? Number(c.capital).toLocaleString('es-AR') : '—') + '</td>';
-    html += '<td style="font-family:var(--mono);font-size:12px;color:var(--orange)">' + (c.interes ? Number(c.interes).toLocaleString('es-AR') : '—') + '</td>';
-    html += '<td style="font-family:var(--mono);font-size:12px">' + (c.saldo_restante ? Number(c.saldo_restante).toLocaleString('es-AR') : '—') + '</td>';
+    html += '<td style="font-weight:700;font-family:monospace">' + mon + ' ' + fmt(c.monto) + '</td>';
+    html += '<td style="color:#3b82f6;font-family:monospace">' + fmt(c.capital) + '</td>';
+    html += '<td style="color:#f97316;font-family:monospace">' + fmt(c.interes) + '</td>';
+    html += '<td style="color:#22c55e;font-family:monospace">' + fmt(c.seguro) + '</td>';
+    html += '<td style="font-weight:800;font-family:monospace">' + mon + ' ' + fmt(total) + '</td>';
+    html += '<td style="font-family:monospace">' + fmt(c.saldo_restante) + '</td>';
     html += '<td><div class="badge ' + (estadoColors[c.estado] || 'badge-gray') + '"><div class="dot"></div>' + c.estado + '</div></td>';
     html += '</tr>';
-    if (c.estado === 'paga' && c.fecha_pago) {
-      html += '<tr style="background:var(--green-bg)"><td colspan="7" style="font-size:11px;color:var(--green);padding:4px 12px">✓ Pagada el ' + formatDatePortal(c.fecha_pago) + (c.medio_pago ? ' · ' + c.medio_pago : '') + '</td></tr>';
+    if (isPaga && c.fecha_pago) {
+      html += '<tr style="background:#f0fdf4"><td colspan="10" style="font-size:11px;color:#22c55e;padding:2px 12px 6px">✓ Pagada el ' + formatDatePortal(c.fecha_pago) + (c.medio_pago ? ' · ' + c.medio_pago : '') + '</td></tr>';
     }
   });
   tbody.innerHTML = html;
 }
+
 
 function formatDatePortal(str) {
   if (!str) return '—';
