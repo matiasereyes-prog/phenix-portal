@@ -897,7 +897,7 @@ body {
       <div style="padding:20px 24px 0">
         <div class="tabs">
           <button class="tab active" onclick="switchTab('cuotas')">Cuotas</button>
-          <button class="tab" onclick="switchTab('liquidacion')">Liquidación</button>
+          <button class="tab" onclick="abrirLiquidacionFS()">Liquidación ↗</button>
           <button class="tab" onclick="switchTab('condiciones')">Escrow</button>
           <button class="tab" onclick="switchTab('documentos')">Documentos</button>
           <button class="tab" onclick="switchTab('info')">Mi contrato</button>
@@ -1084,6 +1084,72 @@ body {
         </div>
       </div>
 
+
+<!-- ══ LIQUIDACION FULLSCREEN PORTAL ══════════════════════════════ -->
+<div class="modal-overlay" id="modal-liq-fs-portal" style="align-items:flex-start;padding:16px;z-index:2000">
+  <div style="background:white;border-radius:16px;padding:24px;width:100%;max-width:100%;max-height:95vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div style="font-size:17px;font-weight:700;color:var(--text)">Cuadro de amortización</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="exportarLiquidacionPortal()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer">⬇ Excel</button>
+        <button onclick="closeModal('modal-liq-fs-portal')" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 14px;font-size:16px;cursor:pointer">✕</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:900px" id="table-liq-fs-portal">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border)">
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;padding:10px 12px;white-space:nowrap">#</th>
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;padding:10px 12px;white-space:nowrap">Vencimiento</th>
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;padding:10px 12px;white-space:nowrap">Cuota</th>
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;padding:10px 12px;white-space:nowrap">Amortización</th>
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;padding:10px 12px;white-space:nowrap">Interés</th>
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;padding:10px 12px;white-space:nowrap">IVA</th>
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;padding:10px 12px;white-space:nowrap">Seguro</th>
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;padding:10px 12px;white-space:nowrap">Total</th>
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;padding:10px 12px;white-space:nowrap">Saldo restante</th>
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;padding:10px 12px;white-space:nowrap">Estado</th>
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;padding:10px 12px;white-space:nowrap">Fecha pago</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-liq-fs-portal"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LIQUIDACION FULLSCREEN PORTAL ══════════════════════════════ -->
+<div class="modal-overlay" id="modal-liq-fs-portal" style="align-items:flex-start;padding:16px;z-index:2000">
+  <div style="background:white;border-radius:16px;padding:24px;width:100%;max-width:100%;max-height:95vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div style="font-size:17px;font-weight:700;color:var(--text)">Cuadro de amortización</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="exportarLiquidacionPortal()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer">⬇ Excel</button>
+        <button onclick="closeModal('modal-liq-fs-portal')" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 14px;font-size:16px;cursor:pointer">✕</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:900px">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border)">
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);padding:10px 12px;white-space:nowrap">#</th>
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);padding:10px 12px;white-space:nowrap">Vencimiento</th>
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);padding:10px 12px;white-space:nowrap">Cuota</th>
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);padding:10px 12px;white-space:nowrap">Amortización</th>
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);padding:10px 12px;white-space:nowrap">Interés</th>
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);padding:10px 12px;white-space:nowrap">IVA</th>
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);padding:10px 12px;white-space:nowrap">Seguro</th>
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);padding:10px 12px;white-space:nowrap">Total</th>
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);padding:10px 12px;white-space:nowrap">Saldo restante</th>
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);padding:10px 12px;white-space:nowrap">Estado</th>
+            <th style="text-align:left;font-size:11px;font-weight:700;color:var(--text3);padding:10px 12px;white-space:nowrap">Fecha pago</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-liq-fs-portal"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 <!-- ══ DEPOSIT MODAL ══════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="deposit-modal">
@@ -2400,6 +2466,104 @@ async function refreshEscrowOnchain() {
     document.getElementById('oc-total').textContent = 'Error';
     console.error('Error loading onchain data:', e);
   }
+}
+
+function abrirLiquidacionFS() {
+  document.getElementById('modal-liq-fs-portal').classList.add('show');
+  document.body.style.overflow = 'hidden';
+  loadLiquidacionFSPortal();
+}
+
+async function loadLiquidacionFSPortal() {
+  if (!sbClient || !userEmail) return;
+  const { data: usuario } = await sbClient.from('usuarios').select('id').eq('email', userEmail).maybeSingle();
+  if (!usuario) return;
+  const { data: contrato } = await sbClient.from('contratos').select('id,moneda').eq('usuario_id', usuario.id).maybeSingle();
+  if (!contrato) return;
+  const { data: cuotas } = await sbClient.from('cuotas').select('*').eq('contrato_id', contrato.id).order('numero', { ascending: true });
+
+  const tbody = document.getElementById('tbody-liq-fs-portal');
+  if (!cuotas || !cuotas.length) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--text3)">Sin cuotas registradas</td></tr>';
+    return;
+  }
+
+  const mon = contrato.moneda || 'USD';
+  const fmt = n => n ? Number(n).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+  const estadoColors = { paga: '#22c55e', pendiente: '#94a3b8', vencida: '#ef4444' };
+
+  let html = '';
+  cuotas.forEach(c => {
+    const cuotaBase = parseFloat(c.monto || 0);
+    const seguro = parseFloat(c.seguro || 0);
+    const adicion = parseFloat(c.adicionales_monto || 0);
+    const total = c.total_con_adicionales || (cuotaBase + seguro + adicion);
+    const isPaga = c.estado === 'paga';
+    const rowBg = isPaga ? '#f0fdf4' : '';
+
+    html += '<tr style="border-bottom:1px solid #f1f5f9;background:' + rowBg + '">';
+    html += '<td style="padding:10px 12px;font-family:monospace;font-size:12px;font-weight:600">' + String(c.numero).padStart(2,'0') + '</td>';
+    html += '<td style="padding:10px 12px;font-family:monospace;font-size:12px;white-space:nowrap">' + (c.fecha_vencimiento ? formatDatePortal(c.fecha_vencimiento) : '—') + '</td>';
+    html += '<td style="padding:10px 12px;font-family:monospace;font-size:12px;font-weight:700">' + mon + ' ' + fmt(c.monto) + '</td>';
+    html += '<td style="padding:10px 12px;font-family:monospace;font-size:12px;color:#3b82f6">' + fmt(c.capital) + '</td>';
+    html += '<td style="padding:10px 12px;font-family:monospace;font-size:12px;color:#f97316">' + fmt(c.interes) + '</td>';
+    html += '<td style="padding:10px 12px;font-family:monospace;font-size:12px;color:#94a3b8">' + fmt(c.iva) + '</td>';
+    html += '<td style="padding:10px 12px;font-family:monospace;font-size:12px;color:#22c55e">' + fmt(c.seguro) + '</td>';
+    html += '<td style="padding:10px 12px;font-family:monospace;font-size:12px;font-weight:800">' + mon + ' ' + fmt(total) + '</td>';
+    html += '<td style="padding:10px 12px;font-family:monospace;font-size:12px">' + fmt(c.saldo_restante) + '</td>';
+    html += '<td style="padding:10px 12px"><span style="background:' + (isPaga ? '#dcfce7' : '#f1f5f9') + ';color:' + (estadoColors[c.estado] || '#94a3b8') + ';border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">' + c.estado.toUpperCase() + '</span></td>';
+    html += '<td style="padding:10px 12px;font-size:12px;color:#22c55e">' + (isPaga && c.fecha_pago ? formatDatePortal(c.fecha_pago) : '—') + '</td>';
+    html += '</tr>';
+  });
+  tbody.innerHTML = html;
+}
+
+function abrirLiquidacionFS() {
+  document.getElementById('modal-liq-fs-portal').classList.add('show');
+  document.body.style.overflow = 'hidden';
+  loadLiquidacionFSPortal();
+}
+
+async function loadLiquidacionFSPortal() {
+  if (!sbClient || !userEmail) return;
+  const { data: usuario } = await sbClient.from('usuarios').select('id').eq('email', userEmail).maybeSingle();
+  if (!usuario) return;
+  const { data: contrato } = await sbClient.from('contratos').select('id,moneda').eq('usuario_id', usuario.id).maybeSingle();
+  if (!contrato) return;
+  const { data: cuotas } = await sbClient.from('cuotas').select('*').eq('contrato_id', contrato.id).order('numero', { ascending: true });
+
+  const tbody = document.getElementById('tbody-liq-fs-portal');
+  if (!cuotas || !cuotas.length) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--text3)">Sin cuotas registradas</td></tr>';
+    return;
+  }
+
+  const mon = contrato.moneda || 'USD';
+  const fmt = n => n ? Number(n).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+
+  let html = '';
+  cuotas.forEach(c => {
+    const cuotaBase = parseFloat(c.monto || 0);
+    const seguro = parseFloat(c.seguro || 0);
+    const adicion = parseFloat(c.adicionales_monto || 0);
+    const total = c.total_con_adicionales || (cuotaBase + seguro + adicion);
+    const isPaga = c.estado === 'paga';
+
+    html += '<tr style="border-bottom:1px solid #f1f5f9;background:' + (isPaga ? '#f0fdf4' : '') + '">';
+    html += '<td style="padding:10px 12px;font-family:monospace;font-size:12px;font-weight:600">' + String(c.numero).padStart(2,'0') + '</td>';
+    html += '<td style="padding:10px 12px;font-family:monospace;font-size:12px;white-space:nowrap">' + (c.fecha_vencimiento ? formatDatePortal(c.fecha_vencimiento) : '—') + '</td>';
+    html += '<td style="padding:10px 12px;font-family:monospace;font-size:12px;font-weight:700">' + mon + ' ' + fmt(c.monto) + '</td>';
+    html += '<td style="padding:10px 12px;font-family:monospace;font-size:12px;color:#3b82f6">' + fmt(c.capital) + '</td>';
+    html += '<td style="padding:10px 12px;font-family:monospace;font-size:12px;color:#f97316">' + fmt(c.interes) + '</td>';
+    html += '<td style="padding:10px 12px;font-family:monospace;font-size:12px;color:#94a3b8">' + fmt(c.iva) + '</td>';
+    html += '<td style="padding:10px 12px;font-family:monospace;font-size:12px;color:#22c55e">' + fmt(c.seguro) + '</td>';
+    html += '<td style="padding:10px 12px;font-family:monospace;font-size:12px;font-weight:800">' + mon + ' ' + fmt(total) + '</td>';
+    html += '<td style="padding:10px 12px;font-family:monospace;font-size:12px">' + fmt(c.saldo_restante) + '</td>';
+    html += '<td style="padding:10px 12px"><span style="background:' + (isPaga ? '#dcfce7' : '#f1f5f9') + ';color:' + (isPaga ? '#22c55e' : '#94a3b8') + ';border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">' + c.estado.toUpperCase() + '</span></td>';
+    html += '<td style="padding:10px 12px;font-size:12px;color:#22c55e">' + (isPaga && c.fecha_pago ? formatDatePortal(c.fecha_pago) : '—') + '</td>';
+    html += '</tr>';
+  });
+  tbody.innerHTML = html;
 }
 
 // Enter en email input
