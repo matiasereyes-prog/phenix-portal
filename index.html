@@ -740,10 +740,18 @@ body {
     <!-- Step 1: Email -->
     <div id="step-email">
       <div class="login-title">Mi contrato</div>
-      <div class="login-subtitle">Ingresá tu email para acceder al estado de tu leasing y recibir un código de verificación.</div>
+      <div class="login-subtitle" id="login-subtitle">Ingresá tu email para acceder al estado de tu leasing y recibir un código de verificación.</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="btn btn-ghost" id="tab-login-otp" style="flex:1;justify-content:center;display:flex" onclick="switchLoginMode('otp')">Código por email</button>
+        <button class="btn btn-ghost" id="tab-login-pass" style="flex:1;justify-content:center;display:flex" onclick="switchLoginMode('password')">Contraseña</button>
+      </div>
       <div class="field-group">
         <label class="field-label" for="email-input">Email</label>
         <input id="email-input" class="field-input" type="email" placeholder="tu@email.com" autocomplete="email"/>
+      </div>
+      <div class="field-group" id="login-password-group" style="display:none">
+        <label class="field-label" for="password-input">Contraseña</label>
+        <input id="password-input" class="field-input" type="password" placeholder="••••••••" autocomplete="current-password"/>
       </div>
       <button class="btn btn-primary" id="btn-send-otp" onclick="sendOTP()">
         <span id="btn-send-text">Enviar código</span>
@@ -765,6 +773,27 @@ body {
       <button class="btn btn-ghost" onclick="backToEmail()">← Cambiar email</button>
       <div id="otp-msg"></div>
     </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: CAMBIO DE CONTRASEÑA OBLIGATORIO ══════════════════════ -->
+<div id="modal-force-password" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center">
+  <div class="login-card" style="max-width:420px;margin:0">
+    <div class="login-title">Definí tu nueva contraseña</div>
+    <div class="login-subtitle">Por seguridad, tenés que cambiar la contraseña temporal antes de continuar.</div>
+    <div class="field-group">
+      <label class="field-label">Nueva contraseña</label>
+      <input class="field-input" type="password" id="fp-password" placeholder="Mínimo 8 caracteres"/>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Repetir contraseña</label>
+      <input class="field-input" type="password" id="fp-password2" placeholder="Repetí la contraseña"/>
+    </div>
+    <button class="btn btn-primary" id="btn-force-password" onclick="confirmarCambioPassword()">
+      <span id="fp-text">Guardar y continuar</span>
+      <div class="spinner" id="fp-spinner" style="display:none"></div>
+    </button>
+    <div id="fp-msg"></div>
   </div>
 </div>
 
@@ -1285,6 +1314,110 @@ try {
   }
 } catch(e) { console.warn('Supabase no configurado, usando modo demo'); }
 
+const EDGE_USERS_URL = 'https://xxscdrwkoutlualpveif.supabase.co/functions/v1/swift-service';
+
+async function edgeUsersPortal(action, payload = {}) {
+  const { data: { session } } = await sbClient.auth.getSession();
+  if (!session) throw new Error('Sin sesión');
+  const res = await fetch(EDGE_USERS_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + session.access_token,
+      'apikey': SUPABASE_ANON_KEY
+    },
+    body: JSON.stringify({ action, ...payload })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Edge Function error: ' + res.status);
+  }
+  return await res.json();
+}
+
+let loginMode = 'otp';
+function switchLoginMode(mode, keepMsg) {
+  loginMode = mode;
+  document.getElementById('tab-login-otp').classList.toggle('btn-primary', mode === 'otp');
+  document.getElementById('tab-login-otp').classList.toggle('btn-ghost', mode !== 'otp');
+  document.getElementById('tab-login-pass').classList.toggle('btn-primary', mode === 'password');
+  document.getElementById('tab-login-pass').classList.toggle('btn-ghost', mode !== 'password');
+  document.getElementById('login-password-group').style.display = mode === 'password' ? 'block' : 'none';
+  document.getElementById('login-subtitle').textContent = mode === 'password'
+    ? 'Ingresá con tu email y contraseña.'
+    : 'Ingresá tu email para acceder al estado de tu leasing y recibir un código de verificación.';
+  document.getElementById('btn-send-text').textContent = mode === 'password' ? 'Ingresar' : 'Enviar código';
+  document.getElementById('btn-send-otp').onclick = mode === 'password' ? loginWithPassword : sendOTP;
+  if (!keepMsg) document.getElementById('email-msg').innerHTML = '';
+}
+
+async function loginWithPassword() {
+  const email = document.getElementById('email-input').value.trim();
+  const password = document.getElementById('password-input').value;
+  if (!email || !password) { showMsg('email-msg', 'Completá email y contraseña.', 'error'); return; }
+  setLoading('btn-send-otp', 'btn-send-text', 'spinner-send', true);
+  try {
+    const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+
+    // Guardamos los tokens apenas se obtienen (se usan luego en confirmarCambioPassword)
+    window._pendingAuthSession = data.session;
+
+    // El cambio de contraseña obligatorio va primero — no debe bloquearlo el vencimiento
+    if (data.user?.user_metadata?.must_change_password) {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('modal-force-password').style.display = 'flex';
+      return;
+    }
+
+    const { data: usuario } = await sbClient.from('usuarios').select('reauth_required_at').eq('email', email).maybeSingle();
+    const vencido = !usuario?.reauth_required_at || new Date(usuario.reauth_required_at) < new Date();
+    if (vencido) {
+      await sbClient.auth.signOut();
+      showMsg('email-msg', '⏱️ Tu acceso por contraseña venció. Pedí el código por email para renovarlo.', 'error');
+      switchLoginMode('otp', true);
+      return;
+    }
+
+    userEmail = email;
+    const appData = await fetchContratoData(email);
+    loadApp(appData || { contrato: null, cuotas: [], condiciones: [] });
+  } catch(e) {
+    showMsg('email-msg', e.message === 'Invalid login credentials' ? 'Email o contraseña incorrectos.' : (e.message || 'Error al ingresar.'), 'error');
+  } finally {
+    setLoading('btn-send-otp', 'btn-send-text', 'spinner-send', false);
+  }
+}
+
+async function confirmarCambioPassword() {
+  const p1 = document.getElementById('fp-password').value;
+  const p2 = document.getElementById('fp-password2').value;
+  if (!p1 || p1.length < 8) { document.getElementById('fp-msg').innerHTML = '<div class="login-error">La contraseña debe tener al menos 8 caracteres.</div>'; return; }
+  if (p1 !== p2) { document.getElementById('fp-msg').innerHTML = '<div class="login-error">Las contraseñas no coinciden.</div>'; return; }
+  document.getElementById('btn-force-password').disabled = true;
+  document.getElementById('fp-text').style.display = 'none';
+  document.getElementById('fp-spinner').style.display = 'inline-block';
+  try {
+    const pending = window._pendingAuthSession;
+    if (!pending?.access_token) throw new Error('Se perdió la sesión. Volvé a loguearte con la contraseña temporal e intentá de nuevo enseguida.');
+    await sbClient.auth.setSession({ access_token: pending.access_token, refresh_token: pending.refresh_token });
+
+    const { error } = await sbClient.auth.updateUser({ password: p1, data: { must_change_password: false } });
+    if (error) throw error;
+    document.getElementById('modal-force-password').style.display = 'none';
+    const { data: { session: newSession } } = await sbClient.auth.getSession();
+    userEmail = newSession.user.email;
+    const appData = await fetchContratoData(userEmail);
+    loadApp(appData || { contrato: null, cuotas: [], condiciones: [] });
+  } catch(e) {
+    document.getElementById('fp-msg').innerHTML = `<div class="login-error">${e.message}</div>`;
+  } finally {
+    document.getElementById('btn-force-password').disabled = false;
+    document.getElementById('fp-text').style.display = 'inline';
+    document.getElementById('fp-spinner').style.display = 'none';
+  }
+}
+
 // ══════════════════════════════════════════════════════════════════
 // AUTH — LOGIN
 // ══════════════════════════════════════════════════════════════════
@@ -1364,6 +1497,7 @@ async function verifyOTP() {
     const { data, error } = await sbClient.auth.verifyOtp({ email: userEmail, token: code, type: 'email' });
     if (error) throw error;
     setLoading('btn-verify-otp', 'btn-verify-text', 'spinner-verify', false);
+    edgeUsersPortal('renovar_reauth').catch(() => {}); // renueva 3 días de acceso por contraseña, en segundo plano
     const appData = await fetchContratoData(userEmail);
     loadApp(appData);
   } catch(e) {
@@ -1385,6 +1519,7 @@ async function logout() {
   document.getElementById('login-screen').style.display = 'flex';
   document.querySelectorAll('.otp-input').forEach(i => i.value = '');
   document.getElementById('email-input').value = '';
+  document.getElementById('password-input').value = '';
   document.getElementById('step-email').style.display = 'block';
   document.getElementById('step-otp').style.display = 'none';
 }
@@ -1978,6 +2113,8 @@ async function handleMagicLink() {
 
     // Limpiar el hash de la URL
     window.history.replaceState(null, '', window.location.pathname);
+
+    edgeUsersPortal('renovar_reauth').catch(() => {}); // renueva 3 días de acceso por contraseña, en segundo plano
 
     // Cargar datos del contrato
     const appData = await fetchContratoData(email);
