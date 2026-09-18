@@ -834,6 +834,14 @@ body {
 
   <div class="main-content">
 
+    <!-- Selector de contratos (solo visible si el cliente tiene mas de uno) -->
+    <div id="contrato-selector-wrap" style="display:none; align-items:center; gap:10px; margin-bottom:16px;">
+      <label for="contrato-select" style="font-size:13px; color:var(--text2, #888);">Contrato:</label>
+      <select id="contrato-select" onchange="cambiarContratoSeleccionado(this.value)"
+        style="padding:8px 12px; border-radius:8px; border:1px solid var(--border, #333); background:var(--surface, #1a1a1a); color:inherit; font-size:14px; cursor:pointer;">
+      </select>
+    </div>
+
     <!-- Hero del contrato -->
     <div class="contrato-hero" id="contrato-hero" style="display:none">
       <div class="contrato-hero-top">
@@ -1545,7 +1553,7 @@ async function logout() {
 // ══════════════════════════════════════════════════════════════════
 // FETCH DATA FROM SUPABASE
 // ══════════════════════════════════════════════════════════════════
-async function fetchContratoData(email) {
+async function fetchContratoData(email, contratoId) {
   // 1. Obtener usuario
   const { data: usuario } = await sbClient
     .from('usuarios')
@@ -1555,16 +1563,27 @@ async function fetchContratoData(email) {
 
   if (!usuario) return null;
 
-  // 2. Obtener contrato con vehiculo
-  const { data: contratoRaw } = await sbClient
+  // 2. Obtener TODOS los contratos del usuario (puede tener mas de uno)
+  const { data: contratosRaw } = await sbClient
     .from('contratos')
     .select('*, vehiculos(*)')
     .eq('usuario_id', usuario.id)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
+    .order('created_at', { ascending: false });
 
-  if (!contratoRaw) return null;
+  if (!contratosRaw || contratosRaw.length === 0) return null;
+
+  // Si se pide un contrato especifico (selector), lo buscamos; si no, el mas reciente
+  const contratoRaw = contratoId
+    ? (contratosRaw.find(c => c.id === contratoId) || contratosRaw[0])
+    : contratosRaw[0];
+
+  // Lista liviana para el selector de contratos (solo si el cliente tiene mas de uno)
+  const contratosList = contratosRaw.map(c => ({
+    id: c.id,
+    auto_descripcion: c.vehiculos ? `${c.vehiculos.marca} ${c.vehiculos.modelo} ${c.vehiculos.anio}` : `Contrato #${c.id}`,
+    estado: c.estado,
+    created_at: c.created_at
+  }));
 
   // 3. Obtener cuotas con adicionales
   const { data: cuotasRaw } = await sbClient
@@ -1660,12 +1679,34 @@ async function fetchContratoData(email) {
     monto: c.monto_liberado || 0
   }));
 
-  return { contrato, cuotas, condiciones };
+  return { contrato, cuotas, condiciones, contratosList };
 }
 
 // ══════════════════════════════════════════════════════════════════
 // LOAD APP
 // ══════════════════════════════════════════════════════════════════
+// SELECTOR DE CONTRATOS (para clientes con mas de un contrato)
+function renderContratoSelector(list, currentId) {
+  const wrap = document.getElementById('contrato-selector-wrap');
+  if (!wrap) return;
+  if (!list || list.length <= 1) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'flex';
+  const select = document.getElementById('contrato-select');
+  select.innerHTML = list.map(c =>
+    `<option value="${c.id}" ${c.id === currentId ? 'selected' : ''}>${c.auto_descripcion} \u2014 ${c.estado}</option>`
+  ).join('');
+}
+
+async function cambiarContratoSeleccionado(contratoId) {
+  const idNum = parseInt(contratoId);
+  if (!userEmail) return;
+  if (typeof showToast === 'function') showToast('Cargando contrato...');
+  const appData = await fetchContratoData(userEmail, idNum);
+  if (!appData) return;
+  window._contratoData = appData;
+  loadApp(appData);
+}
+
 let allCuotas = [];
 
 function loadApp(data) {
@@ -1677,7 +1718,8 @@ function loadApp(data) {
     return;
   }
 
-  const { contrato, cuotas, condiciones } = data;
+  const { contrato, cuotas, condiciones, contratosList } = data;
+  renderContratoSelector(contratosList, contrato.id);
 
   // User chip
   const nombre = contrato.cliente_nombre || userEmail;
@@ -2082,12 +2124,12 @@ async function connectDepositWallet() {
   setDepositLoading(true, 'Conectando...');
   setStepState('step-connect', 'active');
   try {
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    await provider.send('eth_requestAccounts', []);
+    await window.ethereum.request({ method: 'eth_requestAccounts' });
 
-    // Check network
-    const network = await provider.getNetwork();
-    if (Number(network.chainId) !== BASE_CHAIN_ID) {
+    // Check network ANTES de crear el provider, para evitar NETWORK_ERROR
+    // si la wallet cambia de red (ethers v6 asume red fija por defecto)
+    const currentChainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
+    if (parseInt(currentChainIdHex, 16) !== BASE_CHAIN_ID) {
       try {
         await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_CHAIN_ID_HEX }] });
       } catch(e) {
@@ -2097,6 +2139,8 @@ async function connectDepositWallet() {
       }
     }
 
+    // Crear el provider recien aca, ya con la red correcta activa
+    const provider = new ethers.BrowserProvider(window.ethereum, "any");
     const signer = await provider.getSigner();
     const address = await signer.getAddress();
     depositState.wallet = address;
@@ -2143,7 +2187,7 @@ async function approveToken() {
   setDepositLoading(true, 'Aprobando...');
   setStepState('step-approve', 'active');
   try {
-    const provider = new ethers.BrowserProvider(window.ethereum);
+    const provider = new ethers.BrowserProvider(window.ethereum, "any");
     const signer = await provider.getSigner();
     const lease = depositState.leaseData;
     const tokenContract = new ethers.Contract(lease.token, ERC20_ABI, signer);
@@ -2165,7 +2209,7 @@ async function executeDeposit() {
   setDepositLoading(true, 'Firmando...');
   setStepState('step-deposit', 'active');
   try {
-    const provider = new ethers.BrowserProvider(window.ethereum);
+    const provider = new ethers.BrowserProvider(window.ethereum, "any");
     const signer = await provider.getSigner();
     const contract = new ethers.Contract(CONTRACT_ADDRESS, DEPOSIT_ABI, signer);
     const lease = depositState.leaseData;
