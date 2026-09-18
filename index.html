@@ -1336,7 +1336,7 @@ async function edgeUsersPortal(action, payload = {}) {
 }
 
 let loginMode = 'otp';
-function switchLoginMode(mode, keepMsg) {
+function switchLoginMode(mode) {
   loginMode = mode;
   document.getElementById('tab-login-otp').classList.toggle('btn-primary', mode === 'otp');
   document.getElementById('tab-login-otp').classList.toggle('btn-ghost', mode !== 'otp');
@@ -1348,7 +1348,6 @@ function switchLoginMode(mode, keepMsg) {
     : 'Ingresá tu email para acceder al estado de tu leasing y recibir un código de verificación.';
   document.getElementById('btn-send-text').textContent = mode === 'password' ? 'Ingresar' : 'Enviar código';
   document.getElementById('btn-send-otp').onclick = mode === 'password' ? loginWithPassword : sendOTP;
-  if (!keepMsg) document.getElementById('email-msg').innerHTML = '';
 }
 
 async function loginWithPassword() {
@@ -1360,7 +1359,6 @@ async function loginWithPassword() {
     const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
     if (error) throw error;
 
-    // Guardamos los tokens apenas se obtienen (se usan luego en confirmarCambioPassword)
     window._pendingAuthSession = data.session;
 
     // El cambio de contraseña obligatorio va primero — no debe bloquearlo el vencimiento
@@ -1375,7 +1373,7 @@ async function loginWithPassword() {
     if (vencido) {
       await sbClient.auth.signOut();
       showMsg('email-msg', '⏱️ Tu acceso por contraseña venció. Pedí el código por email para renovarlo.', 'error');
-      switchLoginMode('otp', true);
+      switchLoginMode('otp');
       return;
     }
 
