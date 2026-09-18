@@ -797,6 +797,25 @@ body {
   </div>
 </div>
 
+<!-- ══ MODAL: SUBIR COMPROBANTE DE CUOTA ═══════════════════════════ -->
+<div class="modal-overlay" id="modal-comprobante-cuota">
+  <div class="modal-card" style="max-width:420px">
+    <div class="modal-title">Subir comprobante — Cuota <span id="mc-numero"></span></div>
+    <div class="login-subtitle" style="margin-bottom:16px">Adjuntá el comprobante de pago. Tu ejecutivo lo va a revisar y confirmar.</div>
+    <input type="hidden" id="mc-cuota-id"/>
+    <div style="border:2px dashed var(--border2);border-radius:var(--radius);padding:22px;text-align:center;margin-bottom:12px;cursor:pointer" onclick="document.getElementById('mc-file').click()">
+      <div style="font-size:24px;margin-bottom:6px">📎</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text)">Elegir archivo</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">PDF, JPG, PNG — máx. 10MB</div>
+      <div id="mc-filename" style="font-size:12px;color:var(--text);margin-top:8px;font-weight:600"></div>
+      <input type="file" id="mc-file" style="display:none" accept=".pdf,.jpg,.jpeg,.png"/>
+    </div>
+    <div id="mc-msg" style="margin-bottom:8px"></div>
+    <button class="btn btn-primary" onclick="subirComprobanteCuota()">Enviar comprobante</button>
+    <button class="btn btn-ghost" onclick="cerrarModalComprobante()">Cancelar</button>
+  </div>
+</div>
+
 <!-- ══ APP ═══════════════════════════════════════════════════════════ -->
 <div id="app-screen">
   <nav class="topbar">
@@ -956,6 +975,7 @@ body {
                 <th>Total</th>
                 <th>Estado</th>
                 <th>Fecha pago</th>
+                <th>Comprobante</th>
               </tr>
             </thead>
             <tbody id="cuotas-tbody">
@@ -1553,6 +1573,18 @@ async function fetchContratoData(email) {
     .eq('contrato_id', contratoRaw.id)
     .order('numero', { ascending: true });
 
+  // 3.1 Comprobantes de pago ya subidos, para saber el estado por cuota
+  const cuotaIds = (cuotasRaw || []).map(c => c.id);
+  const { data: comprobantesRaw } = await sbClient.from('documentos')
+    .select('observacion, estado')
+    .eq('usuario_id', usuario.id)
+    .eq('tipo', 'comprobante_pago');
+  const comprobantePorCuota = {};
+  (comprobantesRaw || []).forEach(d => {
+    const match = cuotaIds.find(id => d.observacion && d.observacion.includes(id));
+    if (match) comprobantePorCuota[match] = d.estado;
+  });
+
   // 4. Obtener condiciones escrow (solo si aplica)
   const { data: condicionesRaw } = await sbClient
     .from('condiciones_escrow')
@@ -1605,11 +1637,17 @@ async function fetchContratoData(email) {
   };
 
   const cuotas = (cuotasRaw || []).map(c => ({
+    id: c.id,
+    contrato_id: c.contrato_id,
     numero: c.numero,
     fecha_vencimiento: c.fecha_vencimiento,
     monto: c.monto,
+    capital: c.capital,
+    interes: c.interes,
+    saldo_restante: c.saldo_restante,
     estado: c.estado,
     fecha_pago: c.fecha_pago,
+    comprobante_estado: comprobantePorCuota[c.id] || null,
     adicionales: (c.adicionales_cuota || []).map(a => ({ concepto: a.concepto, monto: a.monto }))
   }));
 
@@ -1720,7 +1758,7 @@ function loadApp(data) {
 function renderCuotas(cuotas) {
   const tbody = document.getElementById('cuotas-tbody');
   if (!cuotas || cuotas.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">No hay cuotas registradas.</div></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10"><div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">No hay cuotas registradas.</div></div></td></tr>';
     return;
   }
 
@@ -1746,11 +1784,88 @@ function renderCuotas(cuotas) {
     html += '<td style="font-size:12px;font-weight:800;font-family:monospace">' + mon + ' ' + fmt(total) + '</td>';
     html += '<td><div class="' + (estadoMap[c.estado] || 'cuota-badge-pendiente') + '">' + c.estado + '</div></td>';
     html += '<td class="fecha-pago">' + (isPaga && c.fecha_pago ? formatDatePortal(c.fecha_pago) : '—') + '</td>';
+    html += '<td>' + comprobanteCell(c) + '</td>';
     html += '</tr>';
   });
   tbody.innerHTML = html;
 }
 
+
+function comprobanteCell(c) {
+  if (c.estado === 'paga') return '<span style="font-size:12px;color:var(--text3)">—</span>';
+  if (c.comprobante_estado === 'aprobado') return '<span style="font-size:11px;color:var(--green);font-weight:700">✓ Aprobado</span>';
+  if (c.comprobante_estado === 'pendiente') return '<span style="font-size:11px;color:#92400e;font-weight:700">⏳ En revisión</span>';
+  if (c.comprobante_estado === 'rechazado') return '<button class="btn-link-comprobante" style="font-size:11px;color:var(--red);font-weight:700;background:none;border:none;cursor:pointer;text-decoration:underline" onclick="abrirModalComprobante(\'' + c.id + '\',' + c.numero + ')">✗ Rechazado — resubir</button>';
+  return '<button style="font-size:11px;color:var(--blue);font-weight:700;background:none;border:none;cursor:pointer;text-decoration:underline" onclick="abrirModalComprobante(\'' + c.id + '\',' + c.numero + ')">📎 Subir comprobante</button>';
+}
+
+function abrirModalComprobante(cuotaId, numero) {
+  document.getElementById('mc-cuota-id').value = cuotaId;
+  document.getElementById('mc-numero').textContent = String(numero).padStart(2,'0');
+  document.getElementById('mc-file').value = '';
+  document.getElementById('mc-filename').textContent = '';
+  document.getElementById('mc-msg').innerHTML = '';
+  document.getElementById('modal-comprobante-cuota').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function cerrarModalComprobante() {
+  document.getElementById('modal-comprobante-cuota').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('change', function(e) {
+  if (e.target.id === 'mc-file') {
+    const file = e.target.files[0];
+    if (file) document.getElementById('mc-filename').textContent = '📎 ' + file.name;
+  }
+});
+
+async function subirComprobanteCuota() {
+  const cuotaId = document.getElementById('mc-cuota-id').value;
+  const numero = document.getElementById('mc-numero').textContent;
+  const file = document.getElementById('mc-file').files[0];
+  const msgEl = document.getElementById('mc-msg');
+
+  if (!file) { msgEl.innerHTML = '<div style="background:var(--red-bg);border:1px solid #fecaca;border-radius:8px;padding:10px 14px;color:var(--red);font-size:13px">Elegí un archivo primero.</div>'; return; }
+  if (file.size > 10 * 1024 * 1024) { msgEl.innerHTML = '<div style="background:var(--red-bg);border:1px solid #fecaca;border-radius:8px;padding:10px 14px;color:var(--red);font-size:13px">El archivo supera los 10MB.</div>'; return; }
+
+  msgEl.innerHTML = '<div style="background:var(--yellow-bg);border:1px solid #fde68a;border-radius:8px;padding:10px 14px;color:#92400e;font-size:13px">Subiendo comprobante...</div>';
+
+  try {
+    const { data: usuario } = await sbClient.from('usuarios').select('id').eq('email', userEmail).maybeSingle();
+    if (!usuario) throw new Error('Usuario no encontrado');
+
+    const contratoId = window._contratoData?.contrato?.id;
+    const ext = file.name.split('.').pop();
+    const path = usuario.id + '/comprobante_cuota_' + cuotaId + '_' + Date.now() + '.' + ext;
+    const { error: uploadError } = await sbClient.storage.from('documentos').upload(path, file);
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = sbClient.storage.from('documentos').getPublicUrl(path);
+
+    const { error: dbError } = await sbClient.from('documentos').insert({
+      usuario_id: usuario.id,
+      contrato_id: contratoId,
+      tipo: 'comprobante_pago',
+      url_storage: publicUrl,
+      observacion: 'Comprobante cuota ' + cuotaId + ' (N° ' + numero + ')',
+      estado: 'pendiente'
+    });
+    if (dbError) throw dbError;
+
+    msgEl.innerHTML = '<div style="background:var(--green-bg);border:1px solid #a7f3d0;border-radius:8px;padding:10px 14px;color:var(--green);font-size:13px">✓ Comprobante enviado. Tu ejecutivo lo va a revisar.</div>';
+    setTimeout(async () => {
+      cerrarModalComprobante();
+      const appData = await fetchContratoData(userEmail);
+      window._contratoData = appData;
+      allCuotas = appData.cuotas;
+      renderCuotas(appData.cuotas);
+    }, 900);
+  } catch(e) {
+    msgEl.innerHTML = '<div style="background:var(--red-bg);border:1px solid #fecaca;border-radius:8px;padding:10px 14px;color:var(--red);font-size:13px">Error: ' + (e.message || 'No se pudo subir el archivo.') + '</div>';
+  }
+}
 
 function filterCuotas(filter, btn) {
   currentFilter = filter;
