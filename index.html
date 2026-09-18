@@ -1698,10 +1698,10 @@ function renderContratoSelector(list, currentId) {
 }
 
 async function cambiarContratoSeleccionado(contratoId) {
-  const idNum = parseInt(contratoId);
-  if (!userEmail) return;
+  // contratos.id es uuid (texto), NO parsear como numero
+  if (!userEmail || !contratoId) return;
   if (typeof showToast === 'function') showToast('Cargando contrato...');
-  const appData = await fetchContratoData(userEmail, idNum);
+  const appData = await fetchContratoData(userEmail, contratoId);
   if (!appData) return;
   window._contratoData = appData;
   loadApp(appData);
