@@ -1736,12 +1736,20 @@ function loadApp(data) {
     const bsLink = document.getElementById('basescan-link');
     if (bsLink) bsLink.href = `https://basescan.org/address/${esc.contrato_address}`;
     setTimeout(() => { document.getElementById('escrow-progress').style.width = pct + '%'; }, 300);
-  } else {
+  } else if (contrato.tipo === 'escrow_blockchain') {
+    // Es un contrato de tipo escrow pero todavía no tiene lease_id_onchain
+    // (falta registrarlo en el contrato) — no hay datos reales para mostrar el depósito.
     document.getElementById('no-escrow-card').style.display = 'block';
-    document.getElementById('deposit-banner').style.display = 'flex';
     document.getElementById('hero-escrow').textContent = '—';
-    document.getElementById('hero-escrow-sub').textContent = 'sin activar';
-    window._escrowData = { lease_id: 2, total: 10, token: 'USDC', contrato_address: '0xD83e4b9C46f9038506572E9Caf09AD14E27e49cD' };
+    document.getElementById('hero-escrow-sub').textContent = 'sin registrar on-chain';
+    window._escrowData = null;
+  } else {
+    // Contrato tradicional, no aplica escrow
+    document.getElementById('no-escrow-card').style.display = 'none';
+    document.getElementById('deposit-banner').style.display = 'none';
+    document.getElementById('hero-escrow').textContent = '—';
+    document.getElementById('hero-escrow-sub').textContent = 'no aplica';
+    window._escrowData = null;
   }
 
   // Cuotas
@@ -1982,7 +1990,7 @@ function showToast(msg) {
 // ══════════════════════════════════════════════════════════════════
 // DEPOSIT MODAL
 // ══════════════════════════════════════════════════════════════════
-const CONTRACT_ADDRESS = '0xD83e4b9C46f9038506572E9Caf09AD14E27e49cD';
+const CONTRACT_ADDRESS = '0x84157c60058A4DbEB43C420A886229672Eda2c5f';
 const BASE_CHAIN_ID = 8453;
 const BASE_CHAIN_ID_HEX = '0x2105';
 
@@ -2002,21 +2010,23 @@ const TOKENS = {
   '0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf': { symbol: 'cbBTC', decimals: 8  },
 };
 
-let depositState = { step: 'connect', wallet: null, leaseId: null, leaseData: null, needsApprove: false };
+let depositState = { step: 'connect', wallet: null, leaseId: null, leaseData: null, needsApprove: false, contratoId: null };
 
 function openDepositModal() {
+  const esc = window._escrowData;
+  if (!esc) {
+    showToastPortal('Este contrato todavía no tiene un lease registrado on-chain — contactá a tu ejecutivo.');
+    return;
+  }
   const modal = document.getElementById('deposit-modal');
   modal.classList.add('show');
   document.body.style.overflow = 'hidden';
 
-  // Pull lease data from loaded contrato
-  const esc = window._escrowData;
-  if (esc) {
-    document.getElementById('modal-lease-id').textContent = esc.lease_id || '—';
-    document.getElementById('modal-monto').textContent = `${esc.total} ${esc.token}`;
-    document.getElementById('modal-token').textContent = esc.token;
-    depositState.leaseId = esc.lease_id;
-  }
+  document.getElementById('modal-lease-id').textContent = esc.lease_id || '—';
+  document.getElementById('modal-monto').textContent = `${esc.total} ${esc.token}`;
+  document.getElementById('modal-token').textContent = esc.token;
+  depositState.leaseId = esc.lease_id;
+  depositState.contratoId = window._contratoData?.contrato?.id || null;
   resetDepositSteps();
 }
 
@@ -2093,7 +2103,8 @@ async function connectDepositWallet() {
 
     // Check if ERC-20 needs approval
     const contract = new ethers.Contract(CONTRACT_ADDRESS, DEPOSIT_ABI, provider);
-    const lease = await contract.getLease(depositState.leaseId || 1);
+    if (!depositState.leaseId) throw new Error("No se encontró el Lease ID del contrato.");
+    const lease = await contract.getLease(depositState.leaseId);
     depositState.leaseData = lease;
 
     const tokenAddr = lease.token.toLowerCase();
@@ -2160,12 +2171,23 @@ async function executeDeposit() {
     const lease = depositState.leaseData;
     const isETH = lease.token.toLowerCase() === '0x0000000000000000000000000000000000000000';
     const tx = await contract.depositFunds(
-      depositState.leaseId || 1,
+      depositState.leaseId,
       isETH ? { value: lease.depositAmount } : {}
     );
     setDepositLoading(true, 'Confirmando en blockchain...');
     await tx.wait();
     setStepState('step-deposit', 'done');
+
+    // Reflejar el depósito en Supabase (self-service, verificado del lado del servidor)
+    try {
+      await edgeUsersPortal('confirmar_deposito', {
+        contratoId: depositState.contratoId,
+        txHash: tx.hash,
+        walletAddress: depositState.wallet
+      });
+    } catch(syncErr) {
+      console.error('No se pudo sincronizar el depósito con Supabase:', syncErr);
+    }
 
     // Success state
     document.getElementById('btn-deposit-action').className = 'deposit-btn success';
