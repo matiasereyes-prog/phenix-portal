@@ -1651,7 +1651,8 @@ async function fetchContratoData(email, contratoId) {
       total: parseFloat(contratoRaw.escrow_monto) || 0,
       liberado: parseFloat(contratoRaw.escrow_liberado) || 0,
       bloqueado: parseFloat(contratoRaw.escrow_bloqueado) || 0,
-      lease_id: contratoRaw.lease_id_onchain
+      lease_id: contratoRaw.lease_id_onchain,
+      red: contratoRaw.escrow_red || 'base'
     } : { activo: false }
   };
 
@@ -1775,8 +1776,9 @@ function loadApp(data) {
     document.getElementById('escrow-pct-label').textContent = `${pct}%`;
     document.getElementById('escrow-address').textContent = esc.contrato_address;
     document.getElementById('escrow-address').dataset.address = esc.contrato_address;
+    document.getElementById('escrow-address').dataset.red = esc.red || 'base';
     const bsLink = document.getElementById('basescan-link');
-    if (bsLink) bsLink.href = `https://basescan.org/address/${esc.contrato_address}`;
+    if (bsLink) bsLink.href = explorerAddressPortal(esc.red, esc.contrato_address);
     setTimeout(() => { document.getElementById('escrow-progress').style.width = pct + '%'; }, 300);
   } else if (contrato.tipo === 'escrow_blockchain') {
     // Es un contrato de tipo escrow pero todavía no tiene lease_id_onchain
@@ -2016,7 +2018,8 @@ function copyAddress() {
 
 function openBasescan() {
   const addr = document.getElementById('escrow-address').dataset.address;
-  if (addr && addr !== '—') window.open(`https://basescan.org/address/${addr}`, '_blank');
+  const red = document.getElementById('escrow-address').dataset.red || 'base';
+  if (addr && addr !== '—') window.open(explorerAddressPortal(red, addr), '_blank');
 }
 
 let toastTimer;
@@ -2032,9 +2035,52 @@ function showToast(msg) {
 // ══════════════════════════════════════════════════════════════════
 // DEPOSIT MODAL
 // ══════════════════════════════════════════════════════════════════
-const CONTRACT_ADDRESS = '0xD83e4b9C46f9038506572E9Caf09AD14E27e49cD';
-const BASE_CHAIN_ID = 8453;
-const BASE_CHAIN_ID_HEX = '0x2105';
+const NETWORKS_CONFIG_PORTAL = {
+  base: {
+    name: 'Base', chainIdDec: 8453, chainIdHex: '0x2105',
+    rpcUrl: 'https://mainnet.base.org', explorer: 'https://basescan.org',
+    nativeSymbol: 'ETH', contractAddress: '0xD83e4b9C46f9038506572E9Caf09AD14E27e49cD',
+    tokens: {
+      '0x0000000000000000000000000000000000000000': { symbol: 'ETH', decimals: 18 },
+      '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': { symbol: 'USDC', decimals: 6 },
+      '0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf': { symbol: 'cbBTC', decimals: 8 },
+    }
+  },
+  bsc: {
+    name: 'BNB Smart Chain', chainIdDec: 56, chainIdHex: '0x38',
+    rpcUrl: 'https://bsc-dataseed.binance.org', explorer: 'https://bscscan.com',
+    nativeSymbol: 'BNB', contractAddress: '0xc191880AB13aB8e6387f8857c657c9bFA760263e',
+    tokens: {
+      '0x0000000000000000000000000000000000000000': { symbol: 'BNB', decimals: 18 },
+      '0x608593d17a2decbbc4399e4185be4922f97ed32e': { symbol: 'USDY', decimals: 18 },
+    }
+  }
+};
+function getRedConfigPortal(red) { return NETWORKS_CONFIG_PORTAL[red] || NETWORKS_CONFIG_PORTAL.base; }
+function explorerAddressPortal(red, addr) { return getRedConfigPortal(red).explorer + '/address/' + addr; }
+function explorerTxPortal(red, hash) { return getRedConfigPortal(red).explorer + '/tx/' + hash; }
+async function ensureNetworkPortal(red) {
+  const cfg = getRedConfigPortal(red);
+  const currentChainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
+  if (parseInt(currentChainIdHex, 16) !== cfg.chainIdDec) {
+    try {
+      await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: cfg.chainIdHex }] });
+    } catch(e) {
+      if (e.code === 4902) {
+        await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [{
+          chainId: cfg.chainIdHex, chainName: cfg.name,
+          nativeCurrency: { name: cfg.nativeSymbol, symbol: cfg.nativeSymbol, decimals: 18 },
+          rpcUrls: [cfg.rpcUrl], blockExplorerUrls: [cfg.explorer]
+        }] });
+      } else throw e;
+    }
+  }
+  return cfg;
+}
+// Compat: código legado que referencia estas constantes usa Base por defecto.
+const CONTRACT_ADDRESS = NETWORKS_CONFIG_PORTAL.base.contractAddress;
+const BASE_CHAIN_ID = NETWORKS_CONFIG_PORTAL.base.chainIdDec;
+const BASE_CHAIN_ID_HEX = NETWORKS_CONFIG_PORTAL.base.chainIdHex;
 
 const DEPOSIT_ABI = [
   { inputs: [{ name: "leaseId", type: "uint256" }], name: "depositFunds", outputs: [], stateMutability: "payable", type: "function" },
@@ -2069,6 +2115,7 @@ function openDepositModal() {
   document.getElementById('modal-token').textContent = esc.token;
   depositState.leaseId = esc.lease_id;
   depositState.contratoId = window._contratoData?.contrato?.id || null;
+  depositState.red = esc.red || 'base';
   resetDepositSteps();
 }
 
@@ -2126,18 +2173,10 @@ async function connectDepositWallet() {
   try {
     await window.ethereum.request({ method: 'eth_requestAccounts' });
 
-    // Check network ANTES de crear el provider, para evitar NETWORK_ERROR
-    // si la wallet cambia de red (ethers v6 asume red fija por defecto)
-    const currentChainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
-    if (parseInt(currentChainIdHex, 16) !== BASE_CHAIN_ID) {
-      try {
-        await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_CHAIN_ID_HEX }] });
-      } catch(e) {
-        if (e.code === 4902) {
-          await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [{ chainId: BASE_CHAIN_ID_HEX, chainName: 'Base', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://mainnet.base.org'], blockExplorerUrls: ['https://basescan.org'] }] });
-        } else throw e;
-      }
-    }
+    // Chequeamos y cambiamos de red segun a que red pertenece este lease (Base o BSC)
+    // ANTES de crear el provider, para evitar NETWORK_ERROR si la wallet cambia de red
+    // (ethers v6 asume red fija por defecto).
+    const netCfgDep = await ensureNetworkPortal(depositState.red || 'base');
 
     // Crear el provider recien aca, ya con la red correcta activa
     const provider = new ethers.BrowserProvider(window.ethereum, "any");
@@ -2146,23 +2185,23 @@ async function connectDepositWallet() {
     depositState.wallet = address;
 
     // Check if ERC-20 needs approval
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, DEPOSIT_ABI, provider);
+    const contract = new ethers.Contract(netCfgDep.contractAddress, DEPOSIT_ABI, provider);
     if (!depositState.leaseId) throw new Error("No se encontró el Lease ID del contrato.");
     const lease = await contract.getLease(depositState.leaseId);
     depositState.leaseData = lease;
 
     const tokenAddr = lease.token.toLowerCase();
-    const isETH = tokenAddr === '0x0000000000000000000000000000000000000000';
+    const isNative = tokenAddr === '0x0000000000000000000000000000000000000000';
 
     setStepState('step-connect', 'done');
-    document.getElementById('step-connect-desc').textContent = address.slice(0,6) + '…' + address.slice(-4) + ' · Base';
+    document.getElementById('step-connect-desc').textContent = address.slice(0,6) + '…' + address.slice(-4) + ' · ' + netCfgDep.name;
 
-    if (!isETH) {
+    if (!isNative) {
       // Need approve step
       document.getElementById('step-approve').style.display = 'flex';
       document.getElementById('step-deposit-num').textContent = '3';
       const tokenContract = new ethers.Contract(lease.token, ERC20_ABI, provider);
-      const allowance = await tokenContract.allowance(address, CONTRACT_ADDRESS);
+      const allowance = await tokenContract.allowance(address, netCfgDep.contractAddress);
       if (allowance < lease.depositAmount) {
         depositState.needsApprove = true;
         depositState.step = 'approve';
@@ -2187,11 +2226,12 @@ async function approveToken() {
   setDepositLoading(true, 'Aprobando...');
   setStepState('step-approve', 'active');
   try {
+    const netCfgAp = getRedConfigPortal(depositState.red);
     const provider = new ethers.BrowserProvider(window.ethereum, "any");
     const signer = await provider.getSigner();
     const lease = depositState.leaseData;
     const tokenContract = new ethers.Contract(lease.token, ERC20_ABI, signer);
-    const tx = await tokenContract.approve(CONTRACT_ADDRESS, lease.depositAmount);
+    const tx = await tokenContract.approve(netCfgAp.contractAddress, lease.depositAmount);
     await tx.wait();
     setStepState('step-approve', 'done');
     depositState.step = 'deposit';
@@ -2209,9 +2249,10 @@ async function executeDeposit() {
   setDepositLoading(true, 'Firmando...');
   setStepState('step-deposit', 'active');
   try {
+    const netCfgEx = getRedConfigPortal(depositState.red);
     const provider = new ethers.BrowserProvider(window.ethereum, "any");
     const signer = await provider.getSigner();
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, DEPOSIT_ABI, signer);
+    const contract = new ethers.Contract(netCfgEx.contractAddress, DEPOSIT_ABI, signer);
     const lease = depositState.leaseData;
     const isETH = lease.token.toLowerCase() === '0x0000000000000000000000000000000000000000';
     const tx = await contract.depositFunds(
@@ -2236,7 +2277,7 @@ async function executeDeposit() {
     // Success state
     document.getElementById('btn-deposit-action').className = 'deposit-btn success';
     setDepositLoading(false, '✓ Depósito confirmado');
-    showDepositMsg(`Fondos depositados. TX: <a href="https://basescan.org/tx/${tx.hash}" target="_blank" style="color:var(--green);font-family:var(--mono);font-size:11px">${tx.hash.slice(0,20)}…</a>`, 'success');
+    showDepositMsg(`Fondos depositados. TX: <a href="${explorerTxPortal(depositState.red, tx.hash)}" target="_blank" style="color:var(--green);font-family:var(--mono);font-size:11px">${tx.hash.slice(0,20)}…</a>`, 'success');
     setTimeout(() => { closeDepositModal(); showToast('✓ Escrow activado correctamente'); }, 3000);
   } catch(e) {
     setStepState('step-deposit', 'error');
@@ -2844,7 +2885,7 @@ async function loadEscrowOnchain() {
 
   document.getElementById('escrow-onchain-section').style.display = 'block';
   document.getElementById('escrow-no-onchain').style.display = 'none';
-  document.getElementById('oc-basescan-link').href = 'https://basescan.org/address/' + esc.contrato_address;
+  document.getElementById('oc-basescan-link').href = explorerAddressPortal(esc.red, esc.contrato_address);
 
   await refreshEscrowOnchain();
 }
@@ -2854,14 +2895,15 @@ async function refreshEscrowOnchain() {
   if (!esc || !esc.contrato_address) return;
 
   try {
-    const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
+    const netCfgOc = getRedConfigPortal(esc.red);
+    const provider = new ethers.JsonRpcProvider(netCfgOc.rpcUrl);
     const contract = new ethers.Contract(esc.contrato_address, ESCROW_ABI_PORTAL, provider);
     const [lease, conditions] = await Promise.all([
       contract.getLease(esc.lease_id),
       contract.getConditions(esc.lease_id)
     ]);
 
-    const tokenInfo = TOKENS_PORTAL[lease.token.toLowerCase()] || { symbol: 'TOKEN', decimals: 18 };
+    const tokenInfo = netCfgOc.tokens[lease.token.toLowerCase()] || { symbol: 'TOKEN', decimals: 18 };
     const total = parseFloat(ethers.formatUnits(lease.depositAmount, tokenInfo.decimals));
     const liberado = parseFloat(ethers.formatUnits(lease.releasedAmount, tokenInfo.decimals));
     const bloqueado = parseFloat(ethers.formatUnits(lease.lockedAmount, tokenInfo.decimals));
@@ -2896,7 +2938,7 @@ async function refreshEscrowOnchain() {
     const histEl = document.getElementById('escrow-historial');
     histEl.innerHTML = '<div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:14px">' +
       '<div style="font-size:13px;color:var(--text2);margin-bottom:10px">Ver todas las transacciones del contrato en Basescan:</div>' +
-      '<a href="https://basescan.org/address/' + esc.contrato_address + '#internaltx" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:var(--blue-bg);color:var(--blue);border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;text-decoration:none">🔍 Ver transacciones en Basescan ↗</a>' +
+      '<a href="' + explorerAddressPortal(esc.red, esc.contrato_address) + '#internaltx" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:var(--blue-bg);color:var(--blue);border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;text-decoration:none">🔍 Ver transacciones en el explorer ↗</a>' +
       '<div style="margin-top:10px;font-size:12px;color:var(--text3)">Lease ID on-chain: <span style="font-family:monospace;color:var(--text2)">#' + esc.lease_id + '</span></div>' +
       '<div style="font-size:12px;color:var(--text3);margin-top:4px">Contrato: <span style="font-family:monospace;color:var(--blue)">' + esc.contrato_address.slice(0,10) + '...' + esc.contrato_address.slice(-6) + '</span></div>' +
     '</div>';
