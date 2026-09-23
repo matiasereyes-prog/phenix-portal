@@ -9,32 +9,33 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
 /* ── TOKENS ──────────────────────────────────────────────────────── */
 :root {
-  --bg:        #faf9f7;
-  --bg2:       #f2f0ed;
+  --bg:        #f7f7f7;
+  --bg2:       #ededed;
   --surface:   #ffffff;
-  --surface2:  #f7f5f2;
-  --border:    #e8e4de;
-  --border2:   #d4cfc8;
-  --accent:    #ff6b6b;
-  --accent2:   #e55555;
-  --accent-bg: #fff0f0;
-  --green:     #00a651;
-  --green-bg:  #e8f7ee;
-  --yellow:    #f59e0b;
-  --yellow-bg: #fff8e7;
-  --red:       #e53e3e;
-  --red-bg:    #fff5f5;
-  --blue:      #3366ff;
-  --blue-bg:   #eef2ff;
-  --text:      #111111;
-  --text2:     #555555;
-  --text3:     #999999;
+  --surface2:  #f7f7f7;
+  --border:    #d9d9d9;
+  --border2:   #a0a0a0;
+  --accent:    #0F527C;
+  --accent2:   #0b3e5e;
+  --accent-bg: #e7eef2;
+  --green:     #00e375;
+  --green-bg:  #e5fcf0;
+  --yellow:    #ffca00;
+  --yellow-bg: #fff8e0;
+  --red:       #ff414d;
+  --red-bg:    #ffe9ea;
+  --blue:      #006eff;
+  --blue-bg:   #e6f2ff;
+  --text:      #101010;
+  --text2:     #404040;
+  --text3:     #737373;
   --mono:      'JetBrains Mono', monospace;
-  --sans:      'Inter', sans-serif;
+  --sans:      'Urbanist', sans-serif;
+  --display:   'Poppins', sans-serif;
   --radius:    16px;
   --radius-sm: 10px;
   --shadow:    0 2px 12px rgba(0,0,0,0.06);
@@ -259,7 +260,7 @@ body {
 
 .topbar-logo {
   display: flex; align-items: center; gap: 10px;
-  font-size: 18px; font-weight: 800; color: var(--text); letter-spacing: -0.5px;
+  font-size: 18px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; font-family: var(--display);
 }
 
 .topbar-logo-icon {
@@ -359,7 +360,7 @@ body {
 
 .contrato-auto {
   font-size: 30px; font-weight: 800;
-  color: white; letter-spacing: -0.8px; line-height: 1.1;
+  color: white; letter-spacing: -0.8px; line-height: 1.1; font-family: var(--display);
 }
 
 .contrato-vin {
@@ -492,7 +493,7 @@ body {
 
 .card-title {
   font-size: 15px; font-weight: 700; color: var(--text);
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 8px; font-family: var(--display);
 }
 
 /* ── TABS ─────────────────────────────────────────────────────────── */
@@ -609,7 +610,7 @@ body {
 
 .modal-title {
   font-size: 24px; font-weight: 800; color: var(--text);
-  letter-spacing: -0.5px; margin-bottom: 6px;
+  letter-spacing: -0.5px; margin-bottom: 6px; font-family: var(--display);
 }
 .modal-subtitle { font-size: 14px; color: var(--text2); margin-bottom: 24px; line-height: 1.5; }
 
@@ -679,7 +680,7 @@ body {
   justify-content: space-between; gap: 16px; box-shadow: var(--shadow);
 }
 .banner-text { }
-.banner-title { font-size: 17px; font-weight: 800; color: white; letter-spacing: -0.3px; }
+.banner-title { font-size: 17px; font-weight: 800; color: white; letter-spacing: -0.3px; font-family: var(--display); }
 .banner-desc { font-size: 13px; color: rgba(255,255,255,0.5); margin-top: 4px; }
 .banner-btn {
   background: var(--accent); color: white; border: none;
